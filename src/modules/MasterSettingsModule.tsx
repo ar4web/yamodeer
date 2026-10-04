@@ -3,6 +3,7 @@ import {
   Palette,
   AppWindow,
   ShieldAlert,
+  LayoutDashboard,
   Type,
   RotateCcw,
   Check,
@@ -24,7 +25,8 @@ import {
   ATOMIC_SCOPE_CATALOG,
   AppStoreModuleToggles
 } from "@/context/RBACGeofenceContext";
-import { iconButtonBaseClass, PageHeader, secondaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
+import { iconButtonBaseClass, PageHeader, secondaryButtonClass, TabPanel } from "@/components/DesignSystem";
+import { DashboardWidgetSettingsPanel } from "@/components/DashboardWidgetSettingsPanel";
 
 const ROLE_COLUMNS: CorporateRole[] = [
   "SUPER_ADMIN",
@@ -35,6 +37,119 @@ const ROLE_COLUMNS: CorporateRole[] = [
 ];
 
 const SCALE_STEPS: FontScale[] = ["sm", "md", "lg", "xl"];
+
+type SettingsSection = "theme_lab" | "app_store" | "dashboard_widgets" | "rbac_matrix";
+
+const SETTINGS_SECTIONS: Array<{
+  value: SettingsSection;
+  labelKey: string;
+  descriptionKey: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: "theme_lab",
+    labelKey: "set.tab.theme_lab",
+    descriptionKey: "set.tab.theme_lab.desc",
+    icon: <Palette className="h-5 w-5" />
+  },
+  {
+    value: "app_store",
+    labelKey: "set.tab.app_store",
+    descriptionKey: "set.tab.app_store.desc",
+    icon: <AppWindow className="h-5 w-5" />
+  },
+  {
+    value: "dashboard_widgets",
+    labelKey: "set.tab.dashboard_widgets",
+    descriptionKey: "set.tab.dashboard_widgets.desc",
+    icon: <LayoutDashboard className="h-5 w-5" />
+  },
+  {
+    value: "rbac_matrix",
+    labelKey: "set.tab.rbac_matrix",
+    descriptionKey: "set.tab.rbac_matrix.desc",
+    icon: <ShieldAlert className="h-5 w-5" />
+  }
+];
+
+const SettingsSidebarTabs: React.FC<{
+  value: SettingsSection;
+  onChange: (value: SettingsSection) => void;
+}> = ({ value, onChange }) => {
+  const { t, direction } = useLanguage();
+
+  const moveFocus = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    currentValue: SettingsSection
+  ) => {
+    const currentIndex = SETTINGS_SECTIONS.findIndex((section) => section.value === currentValue);
+    let nextIndex: number | undefined;
+    const forwardKey = direction === "rtl" ? "ArrowLeft" : "ArrowRight";
+    const backwardKey = direction === "rtl" ? "ArrowRight" : "ArrowLeft";
+    if (event.key === "ArrowDown" || event.key === forwardKey) {
+      nextIndex = (currentIndex + 1) % SETTINGS_SECTIONS.length;
+    } else if (event.key === "ArrowUp" || event.key === backwardKey) {
+      nextIndex = (currentIndex - 1 + SETTINGS_SECTIONS.length) % SETTINGS_SECTIONS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = SETTINGS_SECTIONS.length - 1;
+    }
+
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const next = SETTINGS_SECTIONS[nextIndex];
+    onChange(next.value);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`settings-${next.value}-tab`)?.focus();
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-theme bg-surface p-3 shadow-card">
+      <h2 className="px-2 pb-2 text-dynamic-xs font-bold uppercase tracking-wide text-muted">
+        {t("set.sidebar.heading")}
+      </h2>
+      <div
+        id="settings-tablist"
+        role="tablist"
+        aria-label={t("set.sidebar.aria")}
+        aria-orientation="vertical"
+        className="flex min-w-0 gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+      >
+        {SETTINGS_SECTIONS.map((section) => {
+          const selected = value === section.value;
+          return (
+            <button
+              key={section.value}
+              id={`settings-${section.value}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`settings-${section.value}-panel`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => onChange(section.value)}
+              onKeyDown={(event) => moveFocus(event, section.value)}
+              className={`flex w-60 shrink-0 items-start gap-3 rounded-xl border p-3 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:w-full ${
+                selected
+                  ? "border-primary bg-primary-soft text-primary shadow-sm"
+                  : "border-transparent bg-surface text-muted hover:border-theme hover:bg-surface-elevated hover:text-foreground"
+              }`}
+            >
+              <span className="mt-0.5 shrink-0" aria-hidden="true">{section.icon}</span>
+              <span className="min-w-0">
+                <span className="block text-dynamic-sm font-bold">{t(section.labelKey)}</span>
+                <span className="mt-0.5 block whitespace-normal text-dynamic-xs leading-relaxed text-muted">
+                  {t(section.descriptionKey)}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export const MasterSettingsModule: React.FC = () => {
   const { t, localize } = useLanguage();
@@ -65,9 +180,7 @@ export const MasterSettingsModule: React.FC = () => {
     updateAllowedRadius
   } = useRBACGeofence();
 
-  const [activeTab, setActiveTab] = useState<
-    "theme_lab" | "app_store" | "rbac_matrix"
-  >("theme_lab");
+  const [activeTab, setActiveTab] = useState<SettingsSection>("theme_lab");
 
   const canToggleAppStore = hasPermission("system:app_store_toggles");
 
@@ -224,22 +337,13 @@ export const MasterSettingsModule: React.FC = () => {
       <PageHeader
         eyebrow={t("nav.group.company")}
         title={t("set.header.title")}
-        
-        actions={(
-          <SegmentedTabs
-            id="settings"
-            ariaLabel={t("ui.view_switcher")}
-            value={activeTab}
-            onChange={setActiveTab}
-            items={[
-              { value: "theme_lab", label: t("set.tab.theme_lab"), icon: <Palette className="h-4 w-4" /> },
-              { value: "app_store", label: t("set.tab.app_store"), icon: <AppWindow className="h-4 w-4" /> },
-              { value: "rbac_matrix", label: t("set.tab.rbac_matrix"), icon: <ShieldAlert className="h-4 w-4" /> }
-            ]}
-          />
-        )}
       />
 
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
+        <aside className="min-w-0 lg:sticky lg:top-4">
+          <SettingsSidebarTabs value={activeTab} onChange={setActiveTab} />
+        </aside>
+        <div className="min-w-0 space-y-4">
       {/* VIEW 1: DYNAMIC THEME & TYPOGRAPHY LAB */}
       <TabPanel hidden={activeTab !== "theme_lab"} id="settings-theme_lab-panel" labelledBy="settings-theme_lab-tab">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
@@ -612,7 +716,12 @@ export const MasterSettingsModule: React.FC = () => {
         </div>
         </TabPanel>
 
-      {/* VIEW 3: THE GLOBAL RBAC PERMISSION ASSIGNMENT MATRIX */}
+      {/* VIEW 3: DASHBOARD WIDGET VISIBILITY AND EMPTY-STATE PREFERENCES */}
+      <TabPanel hidden={activeTab !== "dashboard_widgets"} id="settings-dashboard_widgets-panel" labelledBy="settings-dashboard_widgets-tab">
+        <DashboardWidgetSettingsPanel />
+      </TabPanel>
+
+      {/* VIEW 4: THE GLOBAL RBAC PERMISSION ASSIGNMENT MATRIX */}
       <TabPanel hidden={activeTab !== "rbac_matrix"} id="settings-rbac_matrix-panel" labelledBy="settings-rbac_matrix-tab">
         <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-theme pb-4">
@@ -701,6 +810,8 @@ export const MasterSettingsModule: React.FC = () => {
           </div>
         </div>
         </TabPanel>
+        </div>
+      </div>
     </div>
   );
 };
