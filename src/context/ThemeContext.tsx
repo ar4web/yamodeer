@@ -10,7 +10,8 @@ export type ColorPalette =
   | "oasis-mint"
   | "royal-gold"
   | "stealth-midnight"
-  | "modern-matte";
+  | "modern-matte"
+  | "dark-goldenrod";
 
 export type EnglishFontFamily = "Inter" | "Roboto" | "SF Pro";
 export type ArabicFontFamily = "Cairo" | "IBM Plex Sans Arabic" | "Tajawal";
@@ -60,6 +61,20 @@ const PALETTE_DICTIONARY: Record<ColorPalette, PaletteTokens> = {
     accentDark: "#b1a89a",
     accentSoftLight: "#f2efe9",
     accentSoftDark: "#3a3732"
+  },
+  "dark-goldenrod": {
+    primary: "#91713b",
+    primaryHover: "#6d552c",
+    primaryDark: "#c4a46e",
+    primaryHoverDark: "#d3bb92",
+    primarySoftLight: "#f0e8db",
+    primarySoftDark: "#48391e",
+    onPrimary: "#ffffff",
+    onPrimaryDark: "#19140a",
+    accent: "#6d552c",
+    accentDark: "#b58e4a",
+    accentSoftLight: "#e1d2b7",
+    accentSoftDark: "#48391e"
   },
   "oasis-mint": {
     primary: "#185b43", // Deep YaModeer evergreen
@@ -116,6 +131,20 @@ const PALETTE_DICTIONARY: Record<ColorPalette, PaletteTokens> = {
     accentSoftDark: "#4a2e28"
   }
 };
+
+const DARK_GOLDENROD_SCALE = {
+  50: "#f8f4ed",
+  100: "#f0e8db",
+  200: "#e1d2b7",
+  300: "#d3bb92",
+  400: "#c4a46e",
+  500: "#b58e4a",
+  600: "#91713b",
+  700: "#6d552c",
+  800: "#48391e",
+  900: "#241c0f",
+  950: "#19140a"
+} as const;
 
 interface ModeSurfaceTokens {
   canvas: string;
@@ -210,6 +239,45 @@ const MODE_SURFACES: Record<ResolvedThemeMode, ModeSurfaceTokens> = {
     shellNavActive: "#292200",
     shadowShell: "0 0 0 2px #facc15",
     shadowCard: "0 0 0 1px #facc15"
+  }
+};
+
+const DARK_GOLDENROD_MODE_SURFACES: Record<"light" | "dark", ModeSurfaceTokens> = {
+  light: {
+    ...MODE_SURFACES.light,
+    canvas: DARK_GOLDENROD_SCALE[50],
+    surface: "#ffffff",
+    surfaceElevated: DARK_GOLDENROD_SCALE[50],
+    surfaceMuted: DARK_GOLDENROD_SCALE[100],
+    foreground: DARK_GOLDENROD_SCALE[950],
+    muted: DARK_GOLDENROD_SCALE[700],
+    border: DARK_GOLDENROD_SCALE[200],
+    shellNav: DARK_GOLDENROD_SCALE[100],
+    shellNavElevated: DARK_GOLDENROD_SCALE[200],
+    shellNavBorder: DARK_GOLDENROD_SCALE[300],
+    shellNavForeground: DARK_GOLDENROD_SCALE[950],
+    shellNavMuted: DARK_GOLDENROD_SCALE[700],
+    shellNavActive: "rgba(109, 85, 44, 0.09)",
+    shadowShell: "0 20px 56px -34px rgba(36, 28, 15, 0.28)",
+    shadowCard: "0 3px 12px -7px rgba(36, 28, 15, 0.2)"
+  },
+  dark: {
+    ...MODE_SURFACES.dark,
+    canvas: DARK_GOLDENROD_SCALE[950],
+    surface: DARK_GOLDENROD_SCALE[900],
+    surfaceElevated: DARK_GOLDENROD_SCALE[800],
+    surfaceMuted: DARK_GOLDENROD_SCALE[700],
+    foreground: DARK_GOLDENROD_SCALE[50],
+    muted: DARK_GOLDENROD_SCALE[300],
+    border: DARK_GOLDENROD_SCALE[800],
+    shellNav: DARK_GOLDENROD_SCALE[900],
+    shellNavElevated: DARK_GOLDENROD_SCALE[800],
+    shellNavBorder: DARK_GOLDENROD_SCALE[700],
+    shellNavForeground: DARK_GOLDENROD_SCALE[50],
+    shellNavMuted: DARK_GOLDENROD_SCALE[300],
+    shellNavActive: "rgba(248, 244, 237, 0.08)",
+    shadowShell: "0 24px 56px -34px rgba(8, 6, 3, 0.58)",
+    shadowCard: "0 3px 12px -7px rgba(8, 6, 3, 0.45)"
   }
 };
 
@@ -320,15 +388,16 @@ export interface ThemeContextValue extends ThemePreferences {
 
 const DEFAULT_PREFERENCES: ThemePreferences = {
   mode: "dark",
-  palette: "soft-charcoal",
+  palette: "dark-goldenrod",
   englishFont: "Inter",
   arabicFont: "Cairo",
   fontScale: "md",
   customOverrides: {}
 };
 
-const STORAGE_KEY_THEME = "ksa_hrms_theme_v3";
-const LEGACY_STORAGE_KEY_THEME = "ksa_hrms_theme_v2";
+const STORAGE_KEY_THEME = "ksa_hrms_theme_v4";
+const LEGACY_STORAGE_KEY_THEME = "ksa_hrms_theme_v3";
+const OLDER_STORAGE_KEY_THEME = "ksa_hrms_theme_v2";
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
@@ -342,13 +411,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ...DEFAULT_PREFERENCES, ...JSON.parse(currentRaw) };
       }
 
-      const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY_THEME);
+      const legacyRaw =
+        localStorage.getItem(LEGACY_STORAGE_KEY_THEME) ??
+        localStorage.getItem(OLDER_STORAGE_KEY_THEME);
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw) as Partial<ThemePreferences>;
-        // Keep accessibility and typography choices while moving the old green/light preset
-        // to the requested calm, charcoal default.
+        // Preserve accessibility and typography choices while applying the new Night Mode default.
         return {
           ...DEFAULT_PREFERENCES,
+          mode: legacy.mode === "high-contrast" ? "high-contrast" : DEFAULT_PREFERENCES.mode,
           englishFont: legacy.englishFont ?? DEFAULT_PREFERENCES.englishFont,
           arabicFont: legacy.arabicFont ?? DEFAULT_PREFERENCES.arabicFont,
           fontScale: legacy.fontScale ?? DEFAULT_PREFERENCES.fontScale
@@ -389,8 +460,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Inject CSS custom properties dynamically onto :root without requiring any external .css file
   useEffect(() => {
     const root = document.documentElement;
+    for (const [shade, color] of Object.entries(DARK_GOLDENROD_SCALE)) {
+      root.style.setProperty(`--color-dark-goldenrod-${shade}`, color);
+    }
     const paletteTokens = PALETTE_DICTIONARY[prefs.palette];
-    const modeTokens = MODE_SURFACES[resolvedMode];
+    const modeTokens =
+      prefs.palette === "dark-goldenrod" && resolvedMode !== "high-contrast"
+        ? DARK_GOLDENROD_MODE_SURFACES[resolvedMode]
+        : MODE_SURFACES[resolvedMode];
     const scaleTokens = FONT_SCALE_MATRIX[prefs.fontScale];
 
     const isDarkLike = resolvedMode === "dark" || resolvedMode === "high-contrast";

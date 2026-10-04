@@ -301,6 +301,7 @@ export const MasterSettingsModule: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(
                   [
+                    ["dark-goldenrod", "#91713b", "#b58e4a"],
                     ["soft-charcoal", "#626a74", "#756f65"],
                     ["oasis-mint", "#047857", "#0d9488"],
                     ["classic-corporate", "#1e3a8a", "#0284c7"],
