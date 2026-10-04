@@ -1,0 +1,32 @@
+{
+  "project_metadata": {
+    "name": "KSA Enterprise HRMS Core",
+    "compliance_target": "Saudi Arabia Labor Law & ZATCA Phase 2",
+    "architecture_pattern": "Strict Modular Shell / Micro-Frontend Ready"
+  },
+  "global_development_rules": [
+    "NEVER write vanilla CSS (.css files). Use Tailwind utility classes exclusively.",
+    "ALL layout structures must use logical properties for dynamic RTL/LTR support (e.g., use 'ps-4' instead of 'pl-4', 'me-2' instead of 'mr-2').",
+    "DO NOT hardcode language strings. Every piece of UI text must be routed through the translation dictionary hook.",
+    "Components must remain presentation-only or localized state-only. All shared global state (User, Theme, Language) must hook into the Master Context Providers."
+  ],
+  "module_specific_rules": {
+    "security_and_geofencing": [
+      "Every page route must be wrapped in the RBAC validation hook (`useCurrentRole()`). If unauthorized, redirect to the unauthorized fallback shell.",
+      "Attendance punch events must trigger the `GeofencingSafetyProvider` matrix validation. If GPS accuracy is > 15m or outside the office radius boundary, block the action and flag an exception log payload."
+    ],
+    "ksa_labor_law_math": [
+      "Overtime (OT) calculations must utilize the standardized core engine formula: (Basic Salary / 30 / 8) * Hours * 1.5 for standard overtime.",
+      "Friday or official public holiday work must calculate at a minimum rate of 1.5x basic wage + an additional 50% premium modifier.",
+      "GOSI deductions must execute conditionally based on nationality fields: 10% employee / 10% employer for Saudi citizens; exactly 2% employer hazards-only for expat listings."
+    ],
+    "zatca_compliance": [
+      "Every generated invoice component must render standard fields in BOTH English and Arabic simultaneously in a side-by-side or stacked block layout.",
+      "The QR code module must accept a pre-computed Tag-Length-Value (TLV) hexadecimal string array. Never render raw text strings inside a compliance QR asset."
+    ],
+    "theming_and_typography": [
+      "Components must read color themes dynamically using Tailwind variable layers (e.g., use `bg-primary` or `text-muted` rather than hardcoded colors like `bg-blue-600`).",
+      "Text elements must inherit the global scale classes (`text-dynamic-sm`, `text-dynamic-base`, `text-dynamic-xl`) to scale cleanly with the user's settings panel configuration."
+    ]
+  }
+}

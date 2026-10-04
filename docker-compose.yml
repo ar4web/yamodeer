@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nour-hrms-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hrms_local
+      POSTGRES_USER: hrms_local
+      POSTGRES_PASSWORD: hrms_local_dev_only
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - nour_hrms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrms_local -d hrms_local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  nour_hrms_postgres_data:
