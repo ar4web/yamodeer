@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -60,6 +60,14 @@ import { MailModule } from "@/modules/MailModule";
 import { ChatModule } from "@/modules/ChatModule";
 import { InvoicingModule } from "@/modules/InvoicingModule";
 import type { InvoiceDraftRecord } from "@/services/invoiceWorkspace";
+import {
+  DEFAULT_SIDEBAR_WIDTH,
+  SIDEBAR_SNAP_WIDTHS,
+  clampSidebarWidth,
+  restoreSidebarWidth,
+  snapSidebarWidth
+} from "@/services/sidebarSizing";
+import type { SidebarSnapWidth } from "@/services/sidebarSizing";
 
 const ROLE_OPTIONS: CorporateRole[] = [
   "SUPER_ADMIN",
@@ -69,30 +77,13 @@ const ROLE_OPTIONS: CorporateRole[] = [
   "EMPLOYEE"
 ];
 
-const SIDEBAR_SNAP_WIDTHS = [80, 176, 336] as const;
-// Start at the standard width; the widest snap point remains available for long labels.
-const DEFAULT_SIDEBAR_WIDTH = SIDEBAR_SNAP_WIDTHS[1];
 const SIDEBAR_WIDTH_STORAGE_KEY = "yamodeer-shell-sidebar-width-v1";
-
-type SidebarSnapWidth = (typeof SIDEBAR_SNAP_WIDTHS)[number];
-
-const clampSidebarWidth = (width: number): number =>
-  Math.max(SIDEBAR_SNAP_WIDTHS[0], Math.min(SIDEBAR_SNAP_WIDTHS[2], width));
-
-const snapSidebarWidth = (width: number): SidebarSnapWidth =>
-  SIDEBAR_SNAP_WIDTHS.reduce<SidebarSnapWidth>(
-    (nearest, candidate) =>
-      Math.abs(candidate - width) < Math.abs(nearest - width) ? candidate : nearest,
-    SIDEBAR_SNAP_WIDTHS[0]
-  );
 
 const getInitialSidebarWidth = (): number => {
   if (typeof window === "undefined") return DEFAULT_SIDEBAR_WIDTH;
   try {
-    const stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
-    return SIDEBAR_SNAP_WIDTHS.includes(stored as SidebarSnapWidth)
-      ? stored
-      : DEFAULT_SIDEBAR_WIDTH;
+    const stored = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    return stored === null ? DEFAULT_SIDEBAR_WIDTH : restoreSidebarWidth(Number(stored));
   } catch {
     return DEFAULT_SIDEBAR_WIDTH;
   }
@@ -441,7 +432,7 @@ export const MasterShell: React.FC = () => {
   };
 
   const saveSidebarWidth = useCallback((width: number) => {
-    const nextWidth = snapSidebarWidth(clampSidebarWidth(width));
+    const nextWidth = clampSidebarWidth(width);
     setSidebarWidth(nextWidth);
     try {
       window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(nextWidth));
@@ -464,44 +455,33 @@ export const MasterShell: React.FC = () => {
     setSidebarDragging(true);
   };
 
-  useEffect(() => {
-    if (!sidebarDragging) return;
+  const handleSidebarResizePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = sidebarDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
 
-    const handlePointerMove = (event: PointerEvent) => {
-      const drag = sidebarDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
+    const physicalDelta = event.clientX - drag.startX;
+    const logicalDelta = drag.direction === "rtl" ? -physicalDelta : physicalDelta;
+    const nextWidth = clampSidebarWidth(drag.startWidth + logicalDelta);
+    drag.currentWidth = nextWidth;
+    setSidebarWidth(nextWidth);
+  };
+
+  const finishSidebarResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = sidebarDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    let finalWidth = drag.currentWidth;
+    if (event.type === "pointerup") {
       const physicalDelta = event.clientX - drag.startX;
       const logicalDelta = drag.direction === "rtl" ? -physicalDelta : physicalDelta;
-      const nextWidth = clampSidebarWidth(drag.startWidth + logicalDelta);
-      drag.currentWidth = nextWidth;
-      setSidebarWidth(nextWidth);
-    };
+      finalWidth = drag.startWidth + logicalDelta;
+    }
 
-    const finishResize = (event: PointerEvent) => {
-      const drag = sidebarDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-
-      let finalWidth = drag.currentWidth;
-      if (event.type === "pointerup") {
-        const physicalDelta = event.clientX - drag.startX;
-        const logicalDelta = drag.direction === "rtl" ? -physicalDelta : physicalDelta;
-        finalWidth = drag.startWidth + logicalDelta;
-      }
-
-      sidebarDragRef.current = null;
-      setSidebarDragging(false);
-      saveSidebarWidth(finalWidth);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", finishResize);
-    window.addEventListener("pointercancel", finishResize);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", finishResize);
-      window.removeEventListener("pointercancel", finishResize);
-    };
-  }, [sidebarDragging, saveSidebarWidth]);
+    sidebarDragRef.current = null;
+    setSidebarDragging(false);
+    saveSidebarWidth(finalWidth);
+  };
 
   const handleSidebarResizeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const currentWidth = snapSidebarWidth(sidebarWidth);
@@ -681,8 +661,12 @@ export const MasterShell: React.FC = () => {
           title={t("shell.resize_sidebar")}
           tabIndex={0}
           onPointerDown={handleSidebarResizePointerDown}
+          onPointerMove={handleSidebarResizePointerMove}
+          onPointerUp={finishSidebarResize}
+          onPointerCancel={finishSidebarResize}
+          onLostPointerCapture={finishSidebarResize}
           onKeyDown={handleSidebarResizeKeyDown}
-          className={`absolute inset-y-0 end-0 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary lg:flex ${
+          className={`absolute inset-y-0 end-0 z-20 hidden w-4 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary lg:flex ${
             sidebarDragging ? "bg-shell-nav-active" : "hover:bg-shell-nav-active/60"
           }`}
         >

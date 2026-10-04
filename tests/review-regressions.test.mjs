@@ -29,6 +29,7 @@ const invoiceWorkspace = await loadTypeScriptModule("src/services/invoiceWorkspa
   "@/data/mockBlueprints": mockBlueprintsModuleUrl
 });
 const employeeImport = await loadTypeScriptModule("src/services/employeeImport.ts");
+const sidebarSizing = await loadTypeScriptModule("src/services/sidebarSizing.ts");
 
 const createSourceRows = (values) => {
   const columns = employeeImport.EMPLOYEE_IMPORT_COLUMNS;
@@ -244,6 +245,16 @@ test("local API port parsing accepts TCP ports and rejects invalid values", () =
   for (const value of ["", "not-a-port", "0", "65536", "1.5"]) {
     assert.throws(() => parseApiPort(value), RangeError);
   }
+});
+
+test("sidebar drag widths persist continuously and clamp within the saved range", () => {
+  assert.equal(sidebarSizing.clampSidebarWidth(207.4), 207);
+  assert.equal(sidebarSizing.clampSidebarWidth(40), 80);
+  assert.equal(sidebarSizing.clampSidebarWidth(400), 336);
+  assert.equal(sidebarSizing.restoreSidebarWidth(207), 207);
+  assert.equal(sidebarSizing.restoreSidebarWidth(336), 336);
+  assert.equal(sidebarSizing.restoreSidebarWidth(Number.NaN), 176);
+  assert.equal(sidebarSizing.snapSidebarWidth(336), 336);
 });
 
 test("DOCX generation works on the documented Node 20 development runtime", async () => {

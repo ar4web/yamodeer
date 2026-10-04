@@ -148,7 +148,7 @@ const MODE_SURFACES: Record<ResolvedThemeMode, ModeSurfaceTokens> = {
     surfaceElevated: "#f9fafb",
     surfaceMuted: "#eef0f3",
     foreground: "#202226",
-    muted: "#70747c",
+    muted: "#4c535d",
     border: "#f0f1f3",
     success: "#537864",
     successSoft: "#e8f0eb",
@@ -160,7 +160,7 @@ const MODE_SURFACES: Record<ResolvedThemeMode, ModeSurfaceTokens> = {
     shellNavElevated: "#e3e6ea",
     shellNavBorder: "#dfe2e7",
     shellNavForeground: "#202226",
-    shellNavMuted: "#70747c",
+    shellNavMuted: "#4c535d",
     shellNavActive: "rgba(32, 34, 38, 0.06)",
     shadowShell: "0 20px 56px -34px rgba(25, 27, 31, 0.24)",
     shadowCard: "0 3px 12px -7px rgba(25, 27, 31, 0.14)"
