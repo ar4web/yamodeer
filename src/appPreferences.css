@@ -1,0 +1,141 @@
+/* A restrained motion curve is shared by controls, tabs, panels and charts throughout the workspace. */
+:root {
+  --ui-motion-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ui-motion-fast: 160ms;
+  --ui-motion-enter: 220ms;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion-preference="reduced"]) :where(button:not(:disabled), a[href], [role="tab"], [role="option"], [role="menuitem"]) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: var(--ui-motion-fast);
+    transition-timing-function: var(--ui-motion-ease);
+  }
+
+  :root:not([data-motion-preference="reduced"]) :where(button:not(:disabled):hover, a[href]:hover, [role="tab"]:hover) {
+    transform: translateY(-1px);
+  }
+
+  :root:not([data-motion-preference="reduced"]) :where(button:not(:disabled):active) {
+    transform: translateY(1px);
+  }
+
+  :root:not([data-motion-preference="reduced"]) :where(.shadow-card) {
+    transition: background-color 180ms var(--ui-motion-ease), border-color 180ms var(--ui-motion-ease), box-shadow 180ms var(--ui-motion-ease);
+  }
+
+  :root:not([data-motion-preference="reduced"]) .app-page-enter {
+    animation: app-page-enter var(--ui-motion-enter) var(--ui-motion-ease) both;
+  }
+
+  :root:not([data-motion-preference="reduced"]) .app-panel-enter:not([hidden]) {
+    animation: app-panel-enter 180ms var(--ui-motion-ease) both;
+  }
+
+  :root:not([data-motion-preference="reduced"]) .chart-donut-segment {
+    transition: stroke-dasharray 420ms var(--ui-motion-ease), stroke-dashoffset 420ms var(--ui-motion-ease);
+  }
+}
+
+@keyframes app-page-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes app-panel-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect the operating-system preference by default; users can also force reduced motion in Settings. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion-preference="full"]) *,
+  :root:not([data-motion-preference="full"]) *::before,
+  :root:not([data-motion-preference="full"]) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+:root[data-motion-preference="reduced"] *,
+:root[data-motion-preference="reduced"] *::before,
+:root[data-motion-preference="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
+
+/* A single, predictable keyboard focus treatment is available throughout every module. */
+:where(a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 3px solid var(--color-primary, #0f766e) !important;
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  max-width: calc(100vw - 1.5rem);
+  transform: translateY(calc(-100% - 1rem));
+  border: 2px solid var(--color-primary, #0f766e);
+  border-radius: 0.5rem;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-foreground, #111827);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+@media (forced-colors: active) {
+  :where(a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline-color: Highlight !important;
+  }
+  .skip-link {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}
+
+/* Refine only the top-bar notification popover scrollbar; leave other page scrollbars native. */
+.notification-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border, #94a3b8) transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background-color: var(--color-border, #94a3b8);
+  background-clip: padding-box;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary, #0f766e);
+}
+
+@media (forced-colors: active) {
+  .notification-scrollbar {
+    scrollbar-color: auto;
+  }
+}

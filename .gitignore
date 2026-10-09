@@ -3,7 +3,7 @@ node_modules/
 .npm/
 dist/
 .cache/
-.parcel-cache/
+.parcel-cache
 coverage/
 .vite/
 *.tsbuildinfo
@@ -20,6 +20,14 @@ coverage/
 # Local demo data and uploads
 uploads/*
 !uploads/architecture-rules.json
+
+# Design reference images and QA screenshots (not app source)
+image-search/
+qa-*.png
+*.png
+*.jpg
+*.webp
+*.avif
 
 # Agent workspace metadata
 .agents/

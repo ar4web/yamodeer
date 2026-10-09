@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   UserCheck,
   UserPlus,
+  Plus,
   Upload,
+  Download,
   FileText,
   Loader2,
   ShieldCheck,
@@ -25,6 +27,7 @@ import {
 import { useLanguage } from "@/context/LanguageContext";
 import { useOperations } from "@/context/OperationsContext";
 import { useCurrentRole, useRBACGeofence } from "@/context/RBACGeofenceContext";
+import { addISOCalendarYears } from "@/services/dateUtils";
 import type {
   AttendanceStatus,
   PerformanceReviewSnapshot
@@ -36,7 +39,7 @@ import {
   NitaqatBand,
   EmployeeStatus
 } from "@/data/mockBlueprints";
-import { DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, HorizontalBarChart, iconButtonClass, MetricCard, PageHeader, ResponsiveFilterDrawer, SegmentedTabs, TabPanel, primaryButtonClass, secondaryButtonClass } from "@/components/DesignSystem";
+import { dangerButtonClass, DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, HorizontalBarChart, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, ResponsiveFilterDrawer, SegmentedTabs, successButtonClass, surfaceClassName, TabPanel, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
 import {
   EMPLOYEE_IMPORT_COLUMNS,
   buildEmployeeImportPreview,
@@ -113,19 +116,19 @@ const getEmployeeSortLabelKey = (sort: EmployeeSortKey): string => {
 };
 
 const getEmployeeStatusClassName = (status: EmployeeStatus): string => {
-  if (status === "ACTIVE") return "bg-success-soft text-success";
-  if (status === "ON_LEAVE") return "bg-warning-soft text-warning";
-  return "bg-danger-soft text-danger";
+  if (status === "ACTIVE") return "bg-success-soft text-success-text";
+  if (status === "ON_LEAVE") return "bg-warning-soft text-warning-text";
+  return "bg-danger-soft text-danger-text";
 };
 
 const getDocumentExpiryPresentation = (daysUntilExpiry: number) => {
   if (daysUntilExpiry <= 30) {
-    return { labelKey: "emp.expiry.critical", className: "bg-danger-soft text-danger" };
+    return { labelKey: "emp.expiry.critical", className: "bg-danger-soft text-danger-text" };
   }
   if (daysUntilExpiry <= 90) {
-    return { labelKey: "emp.expiry.warning", className: "bg-warning-soft text-warning" };
+    return { labelKey: "emp.expiry.warning", className: "bg-warning-soft text-warning-text" };
   }
-  return { labelKey: "emp.expiry.compliant", className: "bg-success-soft text-success" };
+  return { labelKey: "emp.expiry.compliant", className: "bg-success-soft text-success-text" };
 };
 
 const formatEmployeeDirectoryDate = (value: string, isRtl: boolean): string => {
@@ -201,7 +204,9 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
   const [expiryFilter, setExpiryFilter] = useState<"ALL" | "EXPIRING_90" | "CRITICAL_30">("ALL");
   const [sortBy, setSortBy] = useState<EmployeeSortKey>("NAME_ASC");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [employeeActionsOpen, setEmployeeActionsOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFileFormat, setImportFileFormat] = useState<"CSV" | "XLSX" | null>(null);
   const [importSourceRows, setImportSourceRows] = useState<EmployeeImportSourceRow[] | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [importFileErrorKey, setImportFileErrorKey] = useState<string | null>(null);
@@ -318,6 +323,9 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
     () => employees.find((e) => e.id === selectedDossierId) || null,
     [employees, selectedDossierId]
   );
+  const dossierDialogRef = useModalFocus(Boolean(selectedDossierEmployee), () => setSelectedDossierId(null));
+  const employeeActionsDialogRef = useModalFocus(employeeActionsOpen, () => setEmployeeActionsOpen(false));
+  const wpsBatchDialogRef = useModalFocus(wpsBatchModalOpen, () => setWpsBatchModalOpen(false));
 
   const employeeExportColumns = useMemo<EmployeeExportColumn[]>(() => [
     { key: "id", header: t("emp.import.field.employee_id"), value: (employee) => employee.id },
@@ -467,9 +475,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
   const handleRenewMuqeemPermit = (emp: EmployeeRecordBlueprint) => {
     if (!onUpdateEmployee) return;
-    const currentExp = new Date(emp.idExpiryDateGregorian);
-    currentExp.setFullYear(currentExp.getFullYear() + 1);
-    const nextIso = currentExp.toISOString().slice(0, 10);
+    const nextIso = addISOCalendarYears(emp.idExpiryDateGregorian, 1);
 
     onUpdateEmployee({
       ...emp,
@@ -753,7 +759,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
           aria-label={`${t("emp.btn.view_details")} ${localize(employee.name)}`}
           className={`${secondaryButtonClass} min-h-9 gap-1.5 px-3 py-1.5 text-dynamic-xs`}
         >
-          <Eye className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <Eye className="h-4 w-4 shrink-0 text-primary-text" aria-hidden="true" />
           <span className="whitespace-nowrap">{t("emp.btn.view_details")}</span>
         </button>
       )
@@ -769,8 +775,20 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
     setActiveTab("onboarding");
   };
 
-  const handleOpenImportModal = () => {
+  const closeEmployeeActionsThen = (action: () => void) => {
+    setEmployeeActionsOpen(false);
+    window.setTimeout(action, 0);
+  };
+
+  const openEmployeeActions = () => {
+    setImportFileErrorKey(null);
+    setExportError(false);
+    setEmployeeActionsOpen(true);
+  };
+
+  const handleOpenImportModal = (format: "CSV" | "XLSX" | null = null) => {
     if (!canManageDirectory) return;
+    setImportFileFormat(format);
     setImportSourceRows(null);
     setImportFileName("");
     setImportFileErrorKey(null);
@@ -782,11 +800,13 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
   const handleCloseImportModal = () => {
     setImportModalOpen(false);
+    setImportFileFormat(null);
     setImportSourceRows(null);
     setImportFileName("");
     setImportFileErrorKey(null);
     setImportConfirmChecked(false);
   };
+  const importDialogRef = useModalFocus(importModalOpen, handleCloseImportModal);
 
   const handleImportFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -798,6 +818,15 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
     setImportSuccessCount(null);
     setImportConfirmChecked(false);
     setImportPage(0);
+    const fileExtension = file.name.toLowerCase().split(".").pop();
+    if (importFileFormat === "CSV" && fileExtension !== "csv") {
+      setImportFileErrorKey("emp.import.error.expected_csv");
+      return;
+    }
+    if (importFileFormat === "XLSX" && fileExtension !== "xlsx") {
+      setImportFileErrorKey("emp.import.error.expected_xlsx");
+      return;
+    }
     if (file.size > MAX_EMPLOYEE_IMPORT_BYTES) {
       setImportFileErrorKey("emp.import.error.file_too_large");
       return;
@@ -877,6 +906,21 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
     (!canViewPayroll && activeTab === "payroll")
       ? "directory"
       : activeTab;
+  const importFileAccept = importFileFormat === "CSV"
+    ? ".csv,text/csv"
+    : importFileFormat === "XLSX"
+      ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const importChooseFileKey = importFileFormat === "CSV"
+    ? "emp.import.choose_csv"
+    : importFileFormat === "XLSX"
+      ? "emp.import.choose_xlsx"
+      : "emp.import.choose_file";
+  const importAcceptedFilesKey = importFileFormat === "CSV"
+    ? "emp.import.accepted_csv"
+    : importFileFormat === "XLSX"
+      ? "emp.import.accepted_xlsx"
+      : "emp.import.accepted_files";
 
   const activeEmployeesForWps = employees.filter((e) => e.status === "ACTIVE");
   const totalWpsNetDisbursement = activeEmployeesForWps.reduce((sum, emp) => {
@@ -898,42 +942,24 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         actions={(
           <div className="flex w-full flex-wrap items-center justify-end gap-2">
             {visibleTab === "directory" && (
-              <>
-                <FilterDrawerTrigger
-                  label={t("ui.filters")}
-                  controls="employee-directory-filters"
-                  expanded={filterDrawerOpen}
-                  activeCount={(deptFilter === "ALL" ? 0 : 1) + (statusFilter === "ALL" ? 0 : 1) + (expiryFilter === "ALL" ? 0 : 1)}
-                  onClick={() => setFilterDrawerOpen(true)}
-                  className="md:hidden"
-                />
-                {canManageDirectory && (
-                  <>
-                    <button type="button" onClick={handleOpenImportModal} className={secondaryButtonClass}>
-                      <Upload className="h-4 w-4 text-primary" />
-                      <span>{t("emp.import.open")}</span>
-                    </button>
-                    <button type="button" disabled={!filteredEmployees.length || !!exportingFormat} onClick={() => void handleExportEmployees("CSV")} aria-label={t("emp.export.csv")} className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}>
-                      {exportingFormat === "CSV" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-accent" />}
-                      <span>{exportingFormat === "CSV" ? t("emp.export.loading") : t("emp.export.csv")}</span>
-                    </button>
-                    <button type="button" disabled={!filteredEmployees.length || !!exportingFormat} onClick={() => void handleExportEmployees("XLSX")} aria-label={t("emp.export.xlsx")} className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}>
-                      {exportingFormat === "XLSX" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-success" />}
-                      <span>{exportingFormat === "XLSX" ? t("emp.export.loading") : t("emp.export.xlsx")}</span>
-                    </button>
-                  </>
-                )}
-              </>
+              <FilterDrawerTrigger
+                label={t("ui.filters")}
+                controls="employee-directory-filters"
+                expanded={filterDrawerOpen}
+                activeCount={(deptFilter === "ALL" ? 0 : 1) + (statusFilter === "ALL" ? 0 : 1) + (expiryFilter === "ALL" ? 0 : 1)}
+                onClick={() => setFilterDrawerOpen(true)}
+                className="md:hidden"
+              />
             )}
-            {canOnboard && (
-              <button type="button" onClick={handleStartSingleOnboarding} className={primaryButtonClass}>
-                <UserPlus className="h-4 w-4" />
-                <span>{t("emp.add.single")}</span>
-              </button>
-            )}
-            <button type="button" onClick={() => setWpsBatchModalOpen(true)} className={secondaryButtonClass}>
-              <FileSpreadsheet className="h-4 w-4 text-accent" />
-              <span>{t("emp.btn.bulk_wps")}</span>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={employeeActionsOpen}
+              onClick={openEmployeeActions}
+              className={primaryButtonClass}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span>{t("emp.actions.open")}</span>
             </button>
           </div>
         )}
@@ -941,20 +967,20 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
       {visibleTab === "directory" && (
         <div className="hidden w-full flex-wrap items-center justify-end gap-2 xl:flex">
-          <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
             <option value="ALL">{t("emp.filter.all_depts")}</option>
             <option value="HR_GOV">{t("dept.HR_GOV")}</option>
             <option value="FINTECH">{t("dept.FINTECH")}</option>
             <option value="PAYROLL">{t("dept.PAYROLL")}</option>
             <option value="PROCURE">{t("dept.PROCURE")}</option>
           </select>
-          <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className="h-10 min-w-36 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
             <option value="ALL">{t("emp.filter.all_status")}</option>
             <option value="ACTIVE">{t("emp.status.ACTIVE")}</option>
             <option value="ON_LEAVE">{t("emp.status.ON_LEAVE")}</option>
             <option value="SUSPENDED">{t("emp.status.SUSPENDED")}</option>
           </select>
-          <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
             <option value="ALL">{t("emp.filter.all_expiry")}</option>
             <option value="EXPIRING_90">{t("emp.filter.expiring_90")}</option>
             <option value="CRITICAL_30">{t("emp.filter.critical_30")}</option>
@@ -974,7 +1000,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
       >
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("emp.filter.all_depts")}</span>
-          <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("emp.filter.all_depts")}</option>
             <option value="HR_GOV">{t("dept.HR_GOV")}</option>
             <option value="FINTECH">{t("dept.FINTECH")}</option>
@@ -984,7 +1010,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("emp.filter.all_status")}</span>
-          <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("emp.filter.all_status")}</option>
             <option value="ACTIVE">{t("emp.status.ACTIVE")}</option>
             <option value="ON_LEAVE">{t("emp.status.ON_LEAVE")}</option>
@@ -993,7 +1019,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("emp.filter.all_expiry")}</span>
-          <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("emp.filter.all_expiry")}</option>
             <option value="EXPIRING_90">{t("emp.filter.expiring_90")}</option>
             <option value="CRITICAL_30">{t("emp.filter.critical_30")}</option>
@@ -1001,7 +1027,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("ui.sort_by")}</span>
-          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as EmployeeSortKey)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as EmployeeSortKey)} className={`${formControlClassName} h-11`}>
             <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
             <option value="NAME_DESC">{t("ui.sort.name_desc")}</option>
             <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
@@ -1075,7 +1101,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
           </div>
 
           {exportError && (
-            <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-dynamic-xs font-semibold text-danger">
+            <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-dynamic-xs font-semibold text-danger-text">
               {t("emp.export.error")}
             </div>
           )}
@@ -1179,7 +1205,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             <MetricCard label={t("emp.payroll.metric.employer_gosi")} value={formatCurrencySAR(payrollTotals.employerGosi)} icon={<Building2 className="h-5 w-5" />} tone="accent" />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-            <section className="xl:col-span-4 rounded-2xl border border-theme bg-surface p-4 shadow-card space-y-4">
+            <section className={`xl:col-span-4 ${surfaceClassName} p-4 space-y-4`}>
               <h3 className="text-dynamic-base font-semibold text-foreground">{t("dash.chart.payroll_by_department")}</h3>
               <HorizontalBarChart
                 data={payrollByDepartment.map((item, index) => ({ ...item, tone: (["primary", "accent", "success", "warning"] as const)[index % 4] }))}
@@ -1205,9 +1231,9 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                         <td className="py-3 ps-4 pe-3"><div className="text-dynamic-xs font-semibold text-foreground">{localize(employee.name)}</div><div className="font-mono text-dynamic-xs text-muted">{employee.id}</div></td>
                         <td className="py-3 px-3 text-dynamic-xs text-muted">{localize(employee.department)}</td>
                         <td className="py-3 px-3 text-end font-mono text-dynamic-xs text-foreground">{formatCurrencySAR(gross)}</td>
-                        <td className="py-3 px-3 text-end font-mono text-dynamic-xs text-danger">{formatCurrencySAR(gosi.employeeDeductionSar)}</td>
+                        <td className="py-3 px-3 text-end font-mono text-dynamic-xs text-danger-text">{formatCurrencySAR(gosi.employeeDeductionSar)}</td>
                         <td className="py-3 px-3 text-end font-mono text-dynamic-xs text-muted">{formatCurrencySAR(gosi.employerContributionSar)}</td>
-                        <td className="py-3 ps-3 pe-4 text-end font-mono text-dynamic-xs font-bold text-primary">{formatCurrencySAR(net)}</td>
+                        <td className="py-3 ps-3 pe-4 text-end font-mono text-dynamic-xs font-bold text-primary-text">{formatCurrencySAR(net)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1222,35 +1248,35 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         <div className="space-y-4">
           <h2 className="text-dynamic-lg font-semibold text-foreground">{t("emp.attendance.heading")}</h2>
           {hasPermission("self_service:geofence_punch") && (
-            <section className="space-y-4 bg-shell-nav p-4 text-shell-nav-foreground shadow-card">
+            <section className={`${surfaceClassName} space-y-4 p-4`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-shell-nav-elevated text-shell-nav-foreground">
+                  <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
                     <MapPin className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="text-dynamic-base font-semibold text-shell-nav-foreground">{t("shell.geofence_status")}</h3>
-                    <p className="text-dynamic-xs text-shell-nav-muted">{localize(activeOffice.city)}</p>
+                    <h3 className="text-dynamic-base font-semibold text-foreground">{t("shell.geofence_status")}</h3>
+                    <p className="text-dynamic-xs text-muted">{localize(activeOffice.city)}</p>
                   </div>
                 </div>
-                <span role="status" className={`inline-flex items-center gap-2 text-dynamic-xs font-semibold ${isGeoVerified ? "text-shell-nav-foreground" : "text-warning"}`}>
-                  <span className={`h-2 w-2 ${isGeoVerified ? "bg-accent" : "bg-warning"}`} aria-hidden="true" />
+                <span role="status" className={`inline-flex items-center gap-2 text-dynamic-xs font-semibold ${isGeoVerified ? "text-success-text" : "text-warning-text"}`}>
+                  <span className={`h-2 w-2 rounded-full ${isGeoVerified ? "bg-success" : "bg-warning"}`} aria-hidden="true" />
                   {t(isGeoVerified ? "shell.location_verified" : "shell.location_review")}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="min-w-0 bg-shell-nav-elevated px-3 py-2.5">
-                  <span className="block text-dynamic-xs text-shell-nav-muted">{t("geo.distance")}</span>
-                  <span className="mt-1 block truncate font-mono text-dynamic-base font-semibold tabular-nums text-shell-nav-foreground">{calculatedDistanceMeters}m</span>
+                <div className="min-w-0 rounded-md border border-theme bg-surface-elevated px-3 py-2.5">
+                  <span className="block text-dynamic-xs text-muted">{t("geo.distance")}</span>
+                  <span className="mt-1 block truncate font-mono text-dynamic-base font-semibold tabular-nums text-foreground">{calculatedDistanceMeters}m</span>
                 </div>
-                <div className="min-w-0 bg-shell-nav-elevated px-3 py-2.5">
-                  <span className="block text-dynamic-xs text-shell-nav-muted">{t("geo.accuracy")}</span>
-                  <span className={`mt-1 block font-mono text-dynamic-base font-semibold tabular-nums ${capturedCoords.accuracyMeters > 15 ? "text-warning" : "text-shell-nav-foreground"}`}>±{capturedCoords.accuracyMeters}m</span>
+                <div className="min-w-0 rounded-md border border-theme bg-surface-elevated px-3 py-2.5">
+                  <span className="block text-dynamic-xs text-muted">{t("geo.accuracy")}</span>
+                  <span className={`mt-1 block font-mono text-dynamic-base font-semibold tabular-nums ${capturedCoords.accuracyMeters > 15 ? "text-warning-text" : "text-foreground"}`}>±{capturedCoords.accuracyMeters}m</span>
                 </div>
-                <div className="min-w-0 bg-shell-nav-elevated px-3 py-2.5">
-                  <span className="block text-dynamic-xs text-shell-nav-muted">{t("emp.attendance.col.status")}</span>
-                  <span className="mt-1 flex items-center gap-2 font-mono text-dynamic-base font-semibold text-shell-nav-foreground">
+                <div className="min-w-0 rounded-md border border-theme bg-surface-elevated px-3 py-2.5">
+                  <span className="block text-dynamic-xs text-muted">{t("emp.attendance.col.status")}</span>
+                  <span className="mt-1 flex items-center gap-2 font-mono text-dynamic-base font-semibold text-foreground">
                     <Navigation className="h-4 w-4" aria-hidden="true" />
                     {t(isClockedIn ? "shell.clocked_in_badge" : "shell.clock_in_btn")}
                   </span>
@@ -1261,7 +1287,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setGeofenceModalOpen(true)}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 bg-shell-nav-foreground px-3 text-dynamic-xs font-semibold text-shell-nav transition-colors hover:bg-surface"
+                  className={secondaryButtonClass}
                 >
                   <CalendarClock className="h-4 w-4" aria-hidden="true" />
                   <span>{t("emp.attendance.open_geofence")}</span>
@@ -1276,7 +1302,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             <MetricCard label={t("emp.attendance.metric.absent")} value={attendanceCounts.ABSENT} icon={<X className="h-5 w-5" />} tone="danger" />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-            <section className="xl:col-span-4 rounded-2xl border border-theme bg-surface p-4 shadow-card space-y-4">
+            <section className={`xl:col-span-4 ${surfaceClassName} p-4 space-y-4`}>
               <h3 className="text-dynamic-base font-semibold text-foreground">{t("dash.chart.attendance_mix")}</h3>
               <HorizontalBarChart data={attendanceChart} />
             </section>
@@ -1294,7 +1320,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                     {attendanceForEmployees.map(({ record, employee }) => (
                       <tr key={`${record.employeeId}-${record.date}`} className="hover:bg-primary-soft/20">
                         <td className="py-3 ps-4 pe-3 text-dynamic-xs font-semibold text-foreground">{localize(employee.name)}</td>
-                        <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${record.status === "PRESENT" ? "bg-success-soft text-success" : record.status === "LATE" ? "bg-warning-soft text-warning" : record.status === "ABSENT" ? "bg-danger-soft text-danger" : "bg-accent-soft text-accent"}`}>{t(`emp.attendance.status.${record.status}`)}</span></td>
+                        <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${record.status === "PRESENT" ? "bg-success-soft text-success-text" : record.status === "LATE" ? "bg-warning-soft text-warning-text" : record.status === "ABSENT" ? "bg-danger-soft text-danger-text" : "bg-accent-soft text-accent-text"}`}>{t(`emp.attendance.status.${record.status}`)}</span></td>
                         <td className="py-3 px-3 font-mono text-dynamic-xs text-foreground">{record.checkIn || "—"}</td>
                         <td className="py-3 px-3 font-mono text-dynamic-xs text-foreground">{record.checkOut || "—"}</td>
                         <td className="py-3 ps-3 pe-4 font-mono text-dynamic-xs text-muted">{record.date}</td>
@@ -1320,7 +1346,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             <MetricCard label={t("emp.performance.metric.top")} value={performanceRows.filter((row) => row.review.score >= 90).length} icon={<UserCheck className="h-5 w-5" />} tone="accent" />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-            <section className="xl:col-span-4 rounded-2xl border border-theme bg-surface p-4 shadow-card space-y-4">
+            <section className={`xl:col-span-4 ${surfaceClassName} p-4 space-y-4`}>
               <h3 className="text-dynamic-base font-semibold text-foreground">{t("emp.performance.table.title")}</h3>
               <HorizontalBarChart data={performanceRows.map(({ employee, review }) => ({ label: localize(employee.name), value: review.score, tone: review.score >= 90 ? "success" : review.score >= 80 ? "primary" : "warning" }))} valueFormatter={(value) => `${value}%`} maxValue={100} />
             </section>
@@ -1338,7 +1364,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <tr key={employee.id} className="hover:bg-primary-soft/20">
                         <td className="py-3 ps-4 pe-3 text-dynamic-xs font-semibold text-foreground">{localize(employee.name)}</td>
                         <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{review.reviewCycle}</td>
-                        <td className="py-3 px-3 text-end font-mono text-dynamic-xs font-bold text-primary">{review.score}% · {t(review.score >= 90 ? "emp.performance.rating.excellent" : review.score >= 80 ? "emp.performance.rating.strong" : "emp.performance.rating.developing")}</td>
+                        <td className="py-3 px-3 text-end font-mono text-dynamic-xs font-bold text-primary-text">{review.score}% · {t(review.score >= 90 ? "emp.performance.rating.excellent" : review.score >= 80 ? "emp.performance.rating.strong" : "emp.performance.rating.developing")}</td>
                         <td className="py-3 ps-3 pe-4 text-end font-mono text-dynamic-xs text-foreground">{review.goalsCompleted}/{review.goalsTotal}</td>
                       </tr>
                     ))}
@@ -1381,12 +1407,12 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <td className="py-3 px-3 text-dynamic-xs text-foreground">{t(`dept.${request.toDepartmentCode}`)}</td>
                       <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{request.requestedDate}</td>
                       <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{request.effectiveDate}</td>
-                      <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${request.status === "PENDING" ? "bg-warning-soft text-warning" : request.status === "APPROVED" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>{t(`emp.workflow.status.${request.status}`)}</span></td>
+                      <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${request.status === "PENDING" ? "bg-warning-soft text-warning-text" : request.status === "APPROVED" ? "bg-success-soft text-success-text" : "bg-danger-soft text-danger-text"}`}>{t(`emp.workflow.status.${request.status}`)}</span></td>
                       <td className="py-3 ps-3 pe-4 text-end">
                         {request.status === "PENDING" && canManageDirectory ? (
                           <div className="flex justify-end gap-1.5">
-                            <button type="button" onClick={() => updateTransferStatus(request.id, "APPROVED")} className="rounded-lg bg-success px-2.5 py-1 text-dynamic-xs font-semibold text-on-primary">{t("emp.workflow.approve")}</button>
-                            <button type="button" onClick={() => updateTransferStatus(request.id, "REJECTED")} className="rounded-lg bg-danger px-2.5 py-1 text-dynamic-xs font-semibold text-on-primary">{t("emp.workflow.reject")}</button>
+                            <button type="button" onClick={() => updateTransferStatus(request.id, "APPROVED")} className={successButtonClass}>{t("emp.workflow.approve")}</button>
+                            <button type="button" onClick={() => updateTransferStatus(request.id, "REJECTED")} className={dangerButtonClass}>{t("emp.workflow.reject")}</button>
                           </div>
                         ) : <span className="text-dynamic-xs text-muted">—</span>}
                       </td>
@@ -1428,12 +1454,12 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <td className="py-3 px-3 text-dynamic-xs text-foreground">{t(`emp.requests.type.${request.type}`)}</td>
                       <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{request.submittedDate}</td>
                       <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{request.requestedDate || "—"}</td>
-                      <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${request.status === "PENDING" ? "bg-warning-soft text-warning" : request.status === "APPROVED" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>{t(`emp.workflow.status.${request.status}`)}</span></td>
+                      <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${request.status === "PENDING" ? "bg-warning-soft text-warning-text" : request.status === "APPROVED" ? "bg-success-soft text-success-text" : "bg-danger-soft text-danger-text"}`}>{t(`emp.workflow.status.${request.status}`)}</span></td>
                       <td className="py-3 ps-3 pe-4 text-end">
                         {request.status === "PENDING" && (canManageDirectory || (request.type === "LEAVE" && canManageTeamLeave)) ? (
                           <div className="flex justify-end gap-1.5">
-                            <button type="button" onClick={() => updateEmployeeRequestStatus(request.id, "APPROVED")} className="rounded-lg bg-success px-2.5 py-1 text-dynamic-xs font-semibold text-on-primary">{t("emp.workflow.approve")}</button>
-                            <button type="button" onClick={() => updateEmployeeRequestStatus(request.id, "REJECTED")} className="rounded-lg bg-danger px-2.5 py-1 text-dynamic-xs font-semibold text-on-primary">{t("emp.workflow.reject")}</button>
+                            <button type="button" onClick={() => updateEmployeeRequestStatus(request.id, "APPROVED")} className={successButtonClass}>{t("emp.workflow.approve")}</button>
+                            <button type="button" onClick={() => updateEmployeeRequestStatus(request.id, "REJECTED")} className={dangerButtonClass}>{t("emp.workflow.reject")}</button>
                           </div>
                         ) : <span className="text-dynamic-xs text-muted">—</span>}
                       </td>
@@ -1448,7 +1474,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
       {/* TAB 2: 4-STEP KSA ONBOARDING WIZARD */}
       <TabPanel hidden={visibleTab !== "onboarding" || !canOnboard} id="people-onboarding-panel" labelledBy={canOnboard ? "people-onboarding-tab" : undefined}>
-        <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+        <div className={`${surfaceClassName} p-4 space-y-4`}>
           {/* Step Progress Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {(
@@ -1480,7 +1506,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       isActive
                         ? "bg-primary text-on-primary"
                         : isDone
-                        ? "bg-success text-on-primary"
+                        ? "bg-success text-on-success"
                         : "bg-surface text-muted"
                     }`}
                   >
@@ -1496,7 +1522,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
           </div>
 
           {wizardSuccess && (
-            <div className="p-4 rounded-xl bg-success-soft border border-success text-success font-bold text-dynamic-sm flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-success-soft border border-success text-success-text font-bold text-dynamic-sm flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
               <span>{t("wiz.success_banner")}</span>
             </div>
@@ -1515,7 +1541,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   onChange={(e) =>
                     setFormState((p) => ({ ...p, nameEn: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1529,7 +1555,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   onChange={(e) =>
                     setFormState((p) => ({ ...p, nameAr: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1547,7 +1573,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       nationalIdOrIqama: ""
                     }));
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 >
                   <option value="SAUDI">{t("wiz.field.saudi_citizen")}</option>
                   <option value="EXPAT">{t("wiz.field.expat_resident")}</option>
@@ -1563,7 +1589,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   onChange={(e) =>
                     setFormState((p) => ({ ...p, departmentCode: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 >
                   <option value="FINTECH">{t("dept.FINTECH")}</option>
                   <option value="HR_GOV">{t("dept.HR_GOV")}</option>
@@ -1582,7 +1608,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   onChange={(e) =>
                     setFormState((p) => ({ ...p, jobTitleEn: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1596,7 +1622,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   onChange={(e) =>
                     setFormState((p) => ({ ...p, jobTitleAr: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
             </div>
@@ -1625,7 +1651,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                 />
                 <div
                   className={`text-dynamic-xs font-semibold ${
-                    isIdValid && !isIdentityDuplicate ? "text-success" : "text-danger"
+                    isIdValid && !isIdentityDuplicate ? "text-success-text" : "text-danger-text"
                   }`}
                 >
                   {isIdentityDuplicate
@@ -1667,7 +1693,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   }
                   className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
                 />
-                {isQiwaContractDuplicate && <div role="alert" className="text-dynamic-xs font-semibold text-danger">{t("wiz.validation.qiwa_exists")}</div>}
+                {isQiwaContractDuplicate && <div role="alert" className="text-dynamic-xs font-semibold text-danger-text">{t("wiz.validation.qiwa_exists")}</div>}
               </div>
 
               <div className="space-y-1.5">
@@ -1697,7 +1723,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       passportAndMedical: e.target.value
                     }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
             </div>
@@ -1783,7 +1809,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   />
                   <div
                     className={`text-dynamic-xs font-semibold ${
-                      isIbanValid ? "text-success" : "text-danger"
+                      isIbanValid ? "text-success-text" : "text-danger-text"
                     }`}
                   >
                     {isIbanValid
@@ -1796,7 +1822,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
               {/* Conditional GOSI Split Preview Box */}
               <div className="p-4 rounded-2xl bg-primary-soft border border-primary space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-dynamic-sm font-bold text-primary">
+                  <span className="text-dynamic-sm font-bold text-primary-text">
                     {t("wiz.gosi_preview")}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-dynamic-xs font-bold">
@@ -1826,7 +1852,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                     <div className="text-dynamic-xs text-muted">
                       {t("comp.gosi.net_impact")}
                     </div>
-                    <div className="text-dynamic-base font-extrabold text-primary">
+                    <div className="text-dynamic-base font-extrabold text-primary-text">
                       {formatCurrencySAR(wizardGosiPreview.totalGosiRemittanceSar)}
                     </div>
                   </div>
@@ -1900,8 +1926,8 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             <div role="alert" className="rounded-xl border border-warning bg-warning-soft px-4 py-3 text-dynamic-xs text-foreground space-y-1">
               <div className="font-bold">{t("wiz.validation.missing_fields")}</div>
               {!!missingNewHireFieldKeys.length && <div>{missingNewHireFieldKeys.map((fieldKey) => t(fieldKey)).join(" · ")}</div>}
-              {isIdentityDuplicate && <div className="font-semibold text-danger">{t("wiz.validation.identity_exists")}</div>}
-              {isQiwaContractDuplicate && <div className="font-semibold text-danger">{t("wiz.validation.qiwa_exists")}</div>}
+              {isIdentityDuplicate && <div className="font-semibold text-danger-text">{t("wiz.validation.identity_exists")}</div>}
+              {isQiwaContractDuplicate && <div className="font-semibold text-danger-text">{t("wiz.validation.qiwa_exists")}</div>}
             </div>
           )}
 
@@ -1943,7 +1969,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                 type="button"
                 disabled={!canCommitNewHire}
                 onClick={handleCommitNewHire}
-                className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 bg-success px-4 py-2 text-dynamic-sm font-bold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 bg-success px-4 py-2 text-dynamic-sm font-bold text-on-success transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>{t("wiz.btn.commit")}</span>
@@ -1956,14 +1982,14 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
       {/* 360° EMPLOYEE LEGAL, GOSI & CUSTODY DOSSIER MODAL */}
       {selectedDossierEmployee && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
+          <div ref={dossierDialogRef} role="dialog" aria-modal="true" aria-labelledby="employee-dossier-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <span className="px-2.5 py-0.5 rounded-md bg-primary-soft text-primary font-mono font-bold text-dynamic-xs">
+                <span className="px-2.5 py-0.5 rounded-md bg-primary-soft text-primary-text font-mono font-bold text-dynamic-xs">
                   {selectedDossierEmployee.id} •{" "}
                   {selectedDossierEmployee.qiwaContractId}
                 </span>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground pt-1">
+                <h2 id="employee-dossier-title" className="text-dynamic-xl font-extrabold text-foreground pt-1">
                   {t("emp.dossier.title")}
                 </h2>
               </div>
@@ -1979,7 +2005,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             </div>
 
             {muqeemRenewToast && (
-              <div className="p-3.5 rounded-xl bg-success-soft border border-success text-success font-bold text-dynamic-xs flex items-center gap-2">
+              <div className="p-3.5 rounded-xl bg-success-soft border border-success text-success-text font-bold text-dynamic-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{t("emp.dossier.renew_success")}</span>
               </div>
@@ -1988,7 +2014,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             {/* Section 1: Legal Identity & Muqeem / Qiwa Renewal */}
             <div className="p-4 rounded-2xl bg-surface-elevated border border-theme space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-dynamic-xs font-bold text-primary uppercase">
+                <span className="text-dynamic-xs font-bold text-primary-text uppercase">
                   {t("emp.dossier.section_legal")}
                 </span>
                 {selectedDossierEmployee.daysUntilExpiry <= 90 && (
@@ -2037,7 +2063,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       {t("emp.days_remaining")}
                     </strong>
                   </div>
-                  <div className="text-accent">
+                  <div className="text-accent-text">
                     {t("emp.dossier.gosi_number")}: {selectedDossierEmployee.gosiNumber} •{" "}
                     {t(`nitaqat.${selectedDossierEmployee.nitaqatClass}`)}
                   </div>
@@ -2060,7 +2086,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
               return (
                 <div className="p-4 rounded-2xl bg-surface-elevated border border-theme space-y-3">
-                  <div className="text-dynamic-xs font-bold text-primary uppercase">
+                  <div className="text-dynamic-xs font-bold text-primary-text uppercase">
                     {t("emp.dossier.section_comp")}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2078,7 +2104,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <div className="text-dynamic-xs text-muted">
                         {t("comp.gosi.emp_share")} ({gosi.employeeRatePercent}%)
                       </div>
-                      <div className="text-dynamic-sm font-extrabold font-mono text-danger pt-0.5">
+                      <div className="text-dynamic-sm font-extrabold font-mono text-danger-text pt-0.5">
                         {formatCurrencySAR(gosi.employeeDeductionSar)}
                       </div>
                     </div>
@@ -2086,15 +2112,15 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <div className="text-dynamic-xs text-muted">
                         {t("comp.gosi.co_share")} ({gosi.employerRatePercent}%)
                       </div>
-                      <div className="text-dynamic-sm font-extrabold font-mono text-accent pt-0.5">
+                      <div className="text-dynamic-sm font-extrabold font-mono text-accent-text pt-0.5">
                         {formatCurrencySAR(gosi.employerContributionSar)}
                       </div>
                     </div>
                     <div className="p-3 rounded-xl bg-surface border border-theme">
                       <div className="text-dynamic-xs text-muted">
-                        5-Yr EOSB Award
+                        {t("emp.dossier.eosb_five_year_award")}
                       </div>
-                      <div className="text-dynamic-sm font-extrabold font-mono text-success pt-0.5">
+                      <div className="text-dynamic-sm font-extrabold font-mono text-success-text pt-0.5">
                         {formatCurrencySAR(eosb5Yr.netPayableEosbSar)}
                       </div>
                     </div>
@@ -2108,7 +2134,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
             {/* Section 3: Allocated Hardware & Smart Badge Custody */}
             <div className="p-4 rounded-2xl bg-surface-elevated border border-theme space-y-2">
-              <div className="text-dynamic-xs font-bold text-primary uppercase">
+              <div className="text-dynamic-xs font-bold text-primary-text uppercase">
                 {t("emp.dossier.section_assets")}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-dynamic-xs">
@@ -2165,10 +2191,153 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         </div>
       )}
 
+      {/* Employee actions hub: keeps directory tools in one responsive entry point. */}
+      {employeeActionsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-canvas/80 p-3 backdrop-blur-sm sm:p-5">
+          <section
+            id="employee-actions-dialog"
+            ref={employeeActionsDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="employee-actions-title"
+            tabIndex={-1}
+            className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border-2 border-primary bg-surface shadow-shell"
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-theme px-4 py-4 sm:px-6">
+              <div className="min-w-0">
+                <h2 id="employee-actions-title" className="text-dynamic-xl font-extrabold text-foreground">
+                  {t("emp.actions.title")}
+                </h2>
+                <p className="mt-1 max-w-2xl text-dynamic-xs leading-relaxed text-muted">
+                  {t("emp.actions.description")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmployeeActionsOpen(false)}
+                aria-label={t("ui.close")}
+                title={t("ui.close")}
+                className={iconButtonClass}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {canOnboard && (
+                  <section className={`${surfaceClassName} min-w-0 space-y-3 p-4`} aria-labelledby="employee-actions-add-title">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-text">
+                        <UserPlus className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 id="employee-actions-add-title" className="text-dynamic-base font-bold text-foreground">{t("emp.add.single")}</h3>
+                        <p className="mt-1 text-dynamic-xs leading-relaxed text-muted">{t("emp.actions.add_desc")}</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => closeEmployeeActionsThen(handleStartSingleOnboarding)} className={`${primaryButtonClass} w-full`}>
+                      <UserPlus className="h-4 w-4" aria-hidden="true" />
+                      <span>{t("emp.add.single")}</span>
+                    </button>
+                  </section>
+                )}
+
+                {visibleTab === "directory" && canManageDirectory && (
+                  <section className={`${surfaceClassName} min-w-0 space-y-3 p-4`} aria-labelledby="employee-actions-import-title">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-text">
+                        <Upload className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 id="employee-actions-import-title" className="text-dynamic-base font-bold text-foreground">{t("emp.actions.import_title")}</h3>
+                        <p className="mt-1 text-dynamic-xs leading-relaxed text-muted">{t("emp.actions.import_desc")}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button type="button" onClick={() => closeEmployeeActionsThen(() => handleOpenImportModal("CSV"))} className={`${secondaryButtonClass} w-full`}>
+                        <FileText className="h-4 w-4 text-accent-text" aria-hidden="true" />
+                        <span>{t("emp.actions.import_csv")}</span>
+                      </button>
+                      <button type="button" onClick={() => closeEmployeeActionsThen(() => handleOpenImportModal("XLSX"))} className={`${secondaryButtonClass} w-full`}>
+                        <FileSpreadsheet className="h-4 w-4 text-success-text" aria-hidden="true" />
+                        <span>{t("emp.actions.import_xlsx")}</span>
+                      </button>
+                    </div>
+                    <div className="space-y-2 border-t border-theme pt-3">
+                      <h4 className="text-dynamic-xs font-bold text-foreground">{t("emp.actions.templates_title")}</h4>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <button type="button" disabled={!!templateLoading} onClick={() => void handleDownloadEmployeeTemplate("CSV")} className={`${secondaryButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-50`}>
+                          {templateLoading === "CSV" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-accent-text" aria-hidden="true" />}
+                          <span>{t("emp.actions.template_csv")}</span>
+                        </button>
+                        <button type="button" disabled={!!templateLoading} onClick={() => void handleDownloadEmployeeTemplate("XLSX")} className={`${secondaryButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-50`}>
+                          {templateLoading === "XLSX" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-success-text" aria-hidden="true" />}
+                          <span>{t("emp.actions.template_xlsx")}</span>
+                        </button>
+                      </div>
+                      {importFileErrorKey === "emp.import.error.template_failed" && (
+                        <p role="alert" className="text-dynamic-xs font-semibold text-danger-text">{t(importFileErrorKey)}</p>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {visibleTab === "directory" && canManageDirectory && (
+                  <section className={`${surfaceClassName} min-w-0 space-y-3 p-4`} aria-labelledby="employee-actions-export-title">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 id="employee-actions-export-title" className="text-dynamic-base font-bold text-foreground">{t("emp.actions.export_title")}</h3>
+                        <p className="mt-1 text-dynamic-xs leading-relaxed text-muted">{t("emp.actions.export_desc")}</p>
+                      </div>
+                      <span className="shrink-0 rounded-lg bg-surface-elevated px-2.5 py-1 text-dynamic-xs font-semibold text-muted">
+                        {t("ui.records")} · {directoryCounts.format(filteredEmployees.length)}
+                      </span>
+                    </div>
+                    {filteredEmployees.length === 0 && (
+                      <p className="rounded-lg bg-warning-soft px-3 py-2 text-dynamic-xs text-warning-text">{t("emp.export.empty")}</p>
+                    )}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button type="button" disabled={!filteredEmployees.length || !!exportingFormat} onClick={() => void handleExportEmployees("CSV")} aria-label={t("emp.export.csv")} className={`${secondaryButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-50`}>
+                        {exportingFormat === "CSV" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-accent-text" aria-hidden="true" />}
+                        <span>{exportingFormat === "CSV" ? t("emp.export.loading") : t("emp.export.csv")}</span>
+                      </button>
+                      <button type="button" disabled={!filteredEmployees.length || !!exportingFormat} onClick={() => void handleExportEmployees("XLSX")} aria-label={t("emp.export.xlsx")} className={`${secondaryButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-50`}>
+                        {exportingFormat === "XLSX" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-success-text" aria-hidden="true" />}
+                        <span>{exportingFormat === "XLSX" ? t("emp.export.loading") : t("emp.export.xlsx")}</span>
+                      </button>
+                    </div>
+                    {exportError && (
+                      <p role="alert" className="text-dynamic-xs font-semibold text-danger-text">{t("emp.export.error")}</p>
+                    )}
+                  </section>
+                )}
+
+                <section className={`${surfaceClassName} min-w-0 space-y-3 p-4`} aria-labelledby="employee-actions-wps-title">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-text">
+                      <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 id="employee-actions-wps-title" className="text-dynamic-base font-bold text-foreground">{t("emp.actions.wps_title")}</h3>
+                      <p className="mt-1 text-dynamic-xs leading-relaxed text-muted">{t("emp.actions.wps_desc")}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => closeEmployeeActionsThen(() => setWpsBatchModalOpen(true))} className={`${secondaryButtonClass} w-full`}>
+                    <FileSpreadsheet className="h-4 w-4 text-accent-text" aria-hidden="true" />
+                    <span>{t("emp.actions.wps_open")}</span>
+                  </button>
+                </section>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* RBAC-GATED EMPLOYEE IMPORT WITH ROW/FIELD PREVIEW AND ADD-ONLY CONFIRMATION */}
       {importModalOpen && canManageDirectory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-canvas/80 p-3 backdrop-blur-sm sm:p-5">
-          <section role="dialog" aria-modal="true" aria-labelledby="employee-import-title" className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border-2 border-primary bg-surface shadow-shell">
+          <section ref={importDialogRef} role="dialog" aria-modal="true" aria-labelledby="employee-import-title" tabIndex={-1} className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border-2 border-primary bg-surface shadow-shell">
             <header className="flex items-start justify-between gap-4 border-b border-theme px-4 py-4 sm:px-6">
               <div>
                 <h2 id="employee-import-title" className="text-dynamic-xl font-extrabold text-foreground">{t("emp.import.title")}</h2>
@@ -2181,7 +2350,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               <div className="rounded-xl border border-primary bg-primary-soft p-4">
-                <div className="flex items-center gap-2 text-dynamic-sm font-bold text-primary">
+                <div className="flex items-center gap-2 text-dynamic-sm font-bold text-primary-text">
                   <ShieldCheck className="h-4 w-4" />
                   <span>{t("emp.import.safety")}</span>
                 </div>
@@ -2195,24 +2364,24 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                   <p className="mt-1 text-dynamic-xs text-muted">{t("emp.import.template_description")}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" disabled={!!templateLoading} onClick={() => void handleDownloadEmployeeTemplate("XLSX")} className={`${secondaryButtonClass} disabled:opacity-50`}>
-                      {templateLoading === "XLSX" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-success" />}
+                      {templateLoading === "XLSX" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-success-text" />}
                       <span>{t("emp.import.template_xlsx")}</span>
                     </button>
                     <button type="button" disabled={!!templateLoading} onClick={() => void handleDownloadEmployeeTemplate("CSV")} className={`${secondaryButtonClass} disabled:opacity-50`}>
-                      {templateLoading === "CSV" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-accent" />}
+                      {templateLoading === "CSV" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-accent-text" />}
                       <span>{t("emp.import.template_csv")}</span>
                     </button>
                   </div>
                 </div>
                 <div className="rounded-xl border border-dashed border-primary bg-surface-elevated p-4">
                   <div className="text-dynamic-sm font-bold text-foreground">{t("emp.import.choose_file")}</div>
-                  <p className="mt-1 text-dynamic-xs text-muted">{t("emp.import.accepted_files")}</p>
+                  <p className="mt-1 text-dynamic-xs text-muted">{t(importAcceptedFilesKey)}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <label htmlFor="employee-import-file" className={`${primaryButtonClass} cursor-pointer`}>
                       <Upload className="h-4 w-4" />
-                      <span>{t("emp.import.choose_file")}</span>
+                      <span>{t(importChooseFileKey)}</span>
                     </label>
-                    <input id="employee-import-file" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleImportFileChange} disabled={isImportLoading} className="sr-only" />
+                    <input id="employee-import-file" type="file" accept={importFileAccept} onChange={handleImportFileChange} disabled={isImportLoading} className="sr-only" />
                     {importFileName && <span className="max-w-full break-all text-dynamic-xs font-medium text-foreground">{importFileName}</span>}
                   </div>
                 </div>
@@ -2220,17 +2389,17 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
 
               {isImportLoading && (
                 <div role="status" className="flex items-center gap-2 rounded-xl border border-theme bg-surface-elevated px-4 py-3 text-dynamic-xs font-semibold text-muted">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary-text" />
                   <span>{t("emp.import.loading")}</span>
                 </div>
               )}
               {importFileErrorKey && (
-                <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-dynamic-xs font-semibold text-danger">
+                <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-dynamic-xs font-semibold text-danger-text">
                   {t(importFileErrorKey)}
                 </div>
               )}
               {importSuccessCount !== null && (
-                <div role="status" className="flex items-center gap-2 rounded-xl border border-success bg-success-soft px-4 py-3 text-dynamic-xs font-semibold text-success">
+                <div role="status" className="flex items-center gap-2 rounded-xl border border-success bg-success-soft px-4 py-3 text-dynamic-xs font-semibold text-success-text">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>{t("emp.import.added_success")} ({importSuccessCount})</span>
                 </div>
@@ -2244,14 +2413,14 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                       <p className="text-dynamic-xs text-muted">{t("emp.import.preview_before_confirm")}</p>
                     </div>
                     <div className="flex flex-wrap gap-2 text-dynamic-xs">
-                      <span className="rounded-lg bg-success-soft px-2.5 py-1 font-bold text-success">{t("emp.import.valid_rows")}: {importPreview.validEmployees.length}</span>
-                      <span className="rounded-lg bg-danger-soft px-2.5 py-1 font-bold text-danger">{t("emp.import.error_rows")}: {importPreview.rowPreviews.filter((row) => row.status === "ISSUES").length}</span>
-                      <span className="rounded-lg bg-warning-soft px-2.5 py-1 font-bold text-warning">{t("emp.import.warning_count")}: {importPreview.warningCount}</span>
+                      <span className="rounded-lg bg-success-soft px-2.5 py-1 font-bold text-success-text">{t("emp.import.valid_rows")}: {importPreview.validEmployees.length}</span>
+                      <span className="rounded-lg bg-danger-soft px-2.5 py-1 font-bold text-danger-text">{t("emp.import.error_rows")}: {importPreview.rowPreviews.filter((row) => row.status === "ISSUES").length}</span>
+                      <span className="rounded-lg bg-warning-soft px-2.5 py-1 font-bold text-warning-text">{t("emp.import.warning_count")}: {importPreview.warningCount}</span>
                     </div>
                   </div>
 
                   {(!importPreview.headersFound || importPreview.missingHeaderKeys.length > 0 || importPreview.duplicateHeaderKeys.length > 0 || importPreview.emptyData || importPreview.tooManyRows) && (
-                    <div role="alert" className="space-y-2 rounded-xl border border-danger bg-danger-soft p-4 text-dynamic-xs text-danger">
+                    <div role="alert" className="space-y-2 rounded-xl border border-danger bg-danger-soft p-4 text-dynamic-xs text-danger-text">
                       {!importPreview.headersFound && <div className="font-semibold">{t("emp.import.headers_not_found")}</div>}
                       {importPreview.tooManyRows && <div className="font-semibold">{t("emp.import.too_many_rows")}</div>}
                       {importPreview.emptyData && <div className="font-semibold">{t("emp.import.empty_data")}</div>}
@@ -2289,7 +2458,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                                 <td className="px-3 py-3 text-dynamic-xs font-semibold text-foreground">{row.employeeLabel}</td>
                                 <td className="px-3 py-3 font-mono text-dynamic-xs text-muted">{row.employeeId || "—"}</td>
                                 <td className="px-3 py-3">
-                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-dynamic-xs font-bold ${row.status === "READY" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
+                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-dynamic-xs font-bold ${row.status === "READY" ? "bg-success-soft text-success-text" : "bg-danger-soft text-danger-text"}`}>
                                     {row.status === "READY" ? t("emp.import.ready") : t("emp.import.issues")}
                                   </span>
                                 </td>
@@ -2297,7 +2466,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                                   {row.issues.length ? (
                                     <ul className="space-y-1.5">
                                       {row.issues.map((issue, index) => (
-                                        <li key={`${row.rowNumber}-${issue.fieldKey}-${issue.messageKey}-${index}`} className={`leading-relaxed ${issue.severity === "WARNING" ? "text-warning" : "text-danger"}`}>
+                                        <li key={`${row.rowNumber}-${issue.fieldKey}-${issue.messageKey}-${index}`} className={`leading-relaxed ${issue.severity === "WARNING" ? "text-warning-text" : "text-danger-text"}`}>
                                           <span className="font-bold">{t(getImportFieldLabelKey(issue.fieldKey))}:</span> {t(issue.messageKey)}
                                         </li>
                                       ))}
@@ -2346,12 +2515,15 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
       {/* SAMA SARIE WPS BULK PAYROLL BATCH (SIF) MODAL */}
       {wpsBatchModalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
+          <div ref={wpsBatchDialogRef} role="dialog" aria-modal="true" aria-labelledby="wps-batch-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground">
+                <h2 id="wps-batch-title" className="text-dynamic-xl font-extrabold text-foreground">
                   {t("emp.wps_batch.title")}
                 </h2>
+                <p role="note" className="mt-1 max-w-xl text-dynamic-xs leading-relaxed text-muted">
+                  {t("emp.wps_batch.preview_notice")}
+                </p>
               </div>
               <button
                 type="button"
@@ -2369,7 +2541,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
                 <div className="text-dynamic-xs text-muted">
                   {t("emp.wps_batch.total_net")}
                 </div>
-                <div className="text-dynamic-xl font-extrabold font-mono text-primary pt-0.5">
+                <div className="text-dynamic-xl font-extrabold font-mono text-primary-text pt-0.5">
                   {formatCurrencySAR(totalWpsNetDisbursement)}
                 </div>
               </div>
@@ -2384,7 +2556,7 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
             </div>
 
             <div role="region" aria-label={t("emp.import.template_title")} tabIndex={0} className="max-w-full p-4 rounded-xl bg-surface-elevated border border-theme font-mono text-dynamic-xs space-y-1.5 overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
-              <div className="text-primary font-bold">
+              <div className="text-primary-text font-bold">
                 HDR|NOOR-KSA-HRMS|300918273600003|SAR|2026-10-02|
                 {activeEmployeesForWps.length}|{totalWpsNetDisbursement.toFixed(2)}
               </div>

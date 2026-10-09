@@ -1,17 +1,24 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
+  Download,
+  ExternalLink,
+  FileCode2,
+  FileSpreadsheet,
+  FileText,
   Folder,
   FolderOpen,
-  FileText,
-  FileSpreadsheet,
-  FileCode2,
-  Upload,
+  Grid2X2,
+  List,
   Lock,
-  ExternalLink,
-  Download
+  Search,
+  SlidersHorizontal,
+  Upload,
+  X
 } from "lucide-react";
 import { useLanguage, BilingualText } from "@/context/LanguageContext";
-import { DataTableFrame, PageHeader, ResponsiveDrawer, primaryButtonClass, secondaryButtonClass } from "@/components/DesignSystem";
+import { DataTableFrame, iconButtonClass, inlineFormControlClassName, PageHeader, PrototypeNotice, primaryButtonClass, secondaryButtonClass, surfaceClassName } from "@/components/DesignSystem";
+import { DocMakerModule } from "@/modules/DocMakerModule";
+import { getLocalISODate } from "@/services/dateUtils";
 
 export type VaultFolderKey =
   | "QIWA"
@@ -128,63 +135,83 @@ export const INITIAL_VAULT_FILES: VaultFileItem[] = [
 interface FilesManagerModuleProps {
   files: VaultFileItem[];
   onUploadFile: (newFile: VaultFileItem) => void;
-  onOpenInDocMaker: (templateId?: string) => void;
+  canOpenDocMaker: boolean;
   globalSearchQuery: string;
 }
+
+type VaultViewMode = "GRID" | "LIST";
+type VaultTierFilter = "ALL" | VaultFileItem["pdplTier"];
+
+const VAULT_FOLDERS: Array<"ALL" | VaultFolderKey> = [
+  "ALL",
+  "QIWA",
+  "MUQEEM",
+  "ZATCA",
+  "WPS",
+  "VENDORS",
+  "DOCMAKER"
+];
+
+const VAULT_TIER_STYLES: Record<VaultFileItem["pdplTier"], string> = {
+  PDPL_RESTRICTED: "bg-danger-soft text-danger-text",
+  STATUTORY_ARCHIVE: "bg-primary-soft text-primary-text",
+  B2B_CONFIDENTIAL: "bg-warning-soft text-warning-text"
+};
+
+const FileFormatIcon: React.FC<{ format: string; className?: string }> = ({ format, className = "h-5 w-5" }) => {
+  if (format === "XLSX" || format === "CSV") {
+    return <FileSpreadsheet aria-hidden="true" className={className} />;
+  }
+  if (format === "XML") {
+    return <FileCode2 aria-hidden="true" className={className} />;
+  }
+  return <FileText aria-hidden="true" className={className} />;
+};
 
 export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
   files,
   onUploadFile,
-  onOpenInDocMaker,
+  canOpenDocMaker,
   globalSearchQuery
 }) => {
   const { t, localize } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [activeFolder, setActiveFolder] = useState<"ALL" | VaultFolderKey>(
-    "ALL"
-  );
-  const [folderDrawerOpen, setFolderDrawerOpen] = useState(false);
-  const [folderSidebarOpen, setFolderSidebarOpen] = useState(true);
-  const [isWideScreen, setIsWideScreen] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches
-  );
+  const [activeFolder, setActiveFolder] = useState<"ALL" | VaultFolderKey>("ALL");
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(files[0]?.id ?? null);
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"UPDATED_DESC" | "NAME_ASC" | "SIZE_DESC">("UPDATED_DESC");
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1280px)");
-    const syncViewport = () => {
-      setIsWideScreen(mediaQuery.matches);
-      if (mediaQuery.matches) setFolderDrawerOpen(false);
-    };
-    syncViewport();
-    mediaQuery.addEventListener("change", syncViewport);
-    return () => mediaQuery.removeEventListener("change", syncViewport);
-  }, []);
+  const [tierFilter, setTierFilter] = useState<VaultTierFilter>("ALL");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<VaultViewMode>("GRID");
+  const [documentEditorOpen, setDocumentEditorOpen] = useState(false);
+  const [documentTemplateId, setDocumentTemplateId] = useState<string>("BLANK");
+  const [documentSavedNotice, setDocumentSavedNotice] = useState(false);
 
   const filteredFiles = useMemo(() => {
-    const q = globalSearchQuery.trim().toLowerCase();
-    const matched = files.filter((f) => {
-      if (activeFolder !== "ALL" && f.folder !== activeFolder) return false;
-      if (q) {
-        const hay = `${f.fileName} ${f.title.en} ${f.title.ar} ${f.id}`.toLowerCase();
-        return hay.includes(q);
-      }
-      return true;
+    const queries = [globalSearchQuery, localSearchQuery]
+      .map((query) => query.trim().toLowerCase())
+      .filter(Boolean);
+    const matched = files.filter((file) => {
+      if (activeFolder !== "ALL" && file.folder !== activeFolder) return false;
+      if (tierFilter !== "ALL" && file.pdplTier !== tierFilter) return false;
+      const haystack = `${file.fileName} ${file.title.en} ${file.title.ar} ${file.id} ${file.folder} ${file.format}`.toLowerCase();
+      return queries.every((query) => haystack.includes(query));
     });
     const sizeInKb = (label: string) => {
       const value = Number.parseFloat(label) || 0;
       return label.toUpperCase().includes("MB") ? value * 1024 : value;
     };
-    return matched.sort((a, b) => {
-      if (sortBy === "NAME_ASC") return a.fileName.localeCompare(b.fileName);
-      if (sortBy === "SIZE_DESC") return sizeInKb(b.sizeLabel) - sizeInKb(a.sizeLabel);
-      return b.updatedAt.localeCompare(a.updatedAt);
+    return matched.sort((left, right) => {
+      if (sortBy === "NAME_ASC") return left.fileName.localeCompare(right.fileName);
+      if (sortBy === "SIZE_DESC") return sizeInKb(right.sizeLabel) - sizeInKb(left.sizeLabel);
+      return right.updatedAt.localeCompare(left.updatedAt);
     });
-  }, [files, activeFolder, globalSearchQuery, sortBy]);
+  }, [files, activeFolder, globalSearchQuery, localSearchQuery, sortBy, tierFilter]);
 
-  const handleNativeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const selectedItem = filteredFiles.find((file) => file.id === selectedFileId) ?? filteredFiles[0] ?? null;
+
+  const handleNativeFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     const extension = file.name.split(".").pop()?.toUpperCase() || "FILE";
     const knownFormats = ["DOCX", "DOC", "PDF", "XLSX", "XLS", "CSV", "XML", "TXT", "PNG", "JPG", "JPEG"];
@@ -217,11 +244,13 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
       sizeLabel: `${Math.max(1, Math.round(file.size / 1024))} KB`,
       sha256Short: `${digest.slice(0, 12)}...${digest.slice(-8)}`,
       pdplTier: activeFolder === "VENDORS" ? "B2B_CONFIDENTIAL" : activeFolder === "ZATCA" ? "STATUTORY_ARCHIVE" : "PDPL_RESTRICTED",
-      updatedAt: new Date().toISOString().slice(0, 10)
+      updatedAt: getLocalISODate()
     };
 
     onUploadFile(uploaded);
-    e.target.value = "";
+    setSelectedFileId(uploaded.id);
+    setActiveFolder(uploaded.folder);
+    event.target.value = "";
   };
 
   const handleDownloadFile = (item: VaultFileItem) => {
@@ -239,211 +268,401 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
     if (anchor.href.startsWith("blob:")) URL.revokeObjectURL(anchor.href);
   };
 
-  const folders: Array<"ALL" | VaultFolderKey> = [
-    "ALL",
-    "QIWA",
-    "MUQEEM",
-    "ZATCA",
-    "WPS",
-    "VENDORS",
-    "DOCMAKER"
-  ];
-
-  const selectFolder = (folderKey: "ALL" | VaultFolderKey) => {
-    setActiveFolder(folderKey);
-    setFolderDrawerOpen(false);
+  const openDocumentEditor = (templateId?: string) => {
+    if (!canOpenDocMaker) return;
+    setDocumentSavedNotice(false);
+    setDocumentTemplateId(templateId && templateId !== "IMPORTED" ? templateId : "BLANK");
+    setActiveFolder("DOCMAKER");
+    setDocumentEditorOpen(true);
   };
 
-  const toggleFolderNavigation = () => {
-    if (isWideScreen) {
-      setFolderSidebarOpen((open) => !open);
-    } else {
-      setFolderDrawerOpen(true);
-    }
+  const saveDocumentToVault = (file: VaultFileItem) => {
+    onUploadFile(file);
+    setSelectedFileId(file.id);
+    setActiveFolder(file.folder);
+    setDocumentSavedNotice(true);
   };
 
-  const renderFolderNavigation = () => (
-    <nav className="space-y-0.5" aria-label={t("file.sidebar.folders")}>
-      {folders.map((folderKey) => {
-        const isActive = activeFolder === folderKey;
-        const FolderIcon = isActive ? FolderOpen : Folder;
-        const count = folderKey === "ALL" ? files.length : files.filter((file) => file.folder === folderKey).length;
-        return (
-          <button
-            key={folderKey}
-            type="button"
-            aria-pressed={isActive}
-            onClick={() => selectFolder(folderKey)}
-            className={`flex w-full items-center justify-between gap-2 px-3 py-3 text-start transition-colors ${isActive ? "bg-surface font-semibold text-primary" : "text-muted hover:bg-surface hover:text-foreground"}`}
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <FolderIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate text-dynamic-xs font-bold">{t(`file.folder.${folderKey}`)}</span>
-            </span>
-            <span className={`shrink-0 px-2 py-0.5 font-mono text-dynamic-xs font-bold ${isActive ? "bg-surface text-primary" : "bg-surface-elevated text-muted"}`}>
-              {count}
-            </span>
-          </button>
-        );
-      })}
-    </nav>
+  const selectFolder = (folder: "ALL" | VaultFolderKey) => {
+    setActiveFolder(folder);
+    if (folder !== "DOCMAKER") setDocumentEditorOpen(false);
+  };
+
+  const moveFolderFocus = (event: React.KeyboardEvent<HTMLButtonElement>, currentFolder: "ALL" | VaultFolderKey) => {
+    const currentIndex = VAULT_FOLDERS.indexOf(currentFolder);
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % VAULT_FOLDERS.length;
+    else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + VAULT_FOLDERS.length) % VAULT_FOLDERS.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = VAULT_FOLDERS.length - 1;
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const nextFolder = VAULT_FOLDERS[nextIndex];
+    selectFolder(nextFolder);
+    window.requestAnimationFrame(() => document.getElementById(`files-folder-${nextFolder}-tab`)?.focus());
+  };
+
+  const selectedImage = selectedItem?.dataUrl && ["PNG", "JPG", "JPEG"].includes(selectedItem.format)
+    ? selectedItem.dataUrl
+    : null;
+
+  const fileActions = (item: VaultFileItem, compact = false) => (
+    <div className={`flex items-center ${compact ? "gap-1" : "flex-wrap gap-2"}`}>
+      {canOpenDocMaker && item.linkedTemplateId && item.linkedTemplateId !== "IMPORTED" && (
+        <button
+          type="button"
+          onClick={() => openDocumentEditor(item.linkedTemplateId)}
+          aria-label={t("file.btn.open_in_docmaker")}
+          title={t("file.btn.open_in_docmaker")}
+          className={compact
+            ? "inline-flex h-9 w-9 items-center justify-center rounded-md border border-theme bg-surface-elevated text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            : secondaryButtonClass}
+        >
+          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          {!compact && <span>{t("file.btn.open_in_docmaker")}</span>}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => handleDownloadFile(item)}
+        aria-label={t(item.dataUrl ? "file.btn.download" : "file.btn.download_manifest")}
+        title={t(item.dataUrl ? "file.btn.download" : "file.btn.download_manifest")}
+        className={compact
+          ? "inline-flex h-9 w-9 items-center justify-center rounded-md border border-theme bg-surface-elevated text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          : primaryButtonClass}
+      >
+        <Download className="h-4 w-4" aria-hidden="true" />
+        {!compact && <span>{t(item.dataUrl ? "file.btn.download" : "file.btn.download_manifest")}</span>}
+      </button>
+    </div>
   );
 
-  return (
-    <div className="flex min-w-0 gap-4 xl:gap-6">
-      <aside
-        id="files-folder-sidebar"
-        aria-label={t("file.sidebar.folders")}
-        className={`hidden min-w-0 shrink-0 bg-surface-elevated p-3 xl:w-[17rem] ${folderSidebarOpen ? "xl:block" : ""}`}
+  const renderFileCard = (item: VaultFileItem) => {
+    const isSelected = selectedItem?.id === item.id;
+    const iconTone = item.format === "XLSX" || item.format === "CSV"
+      ? "bg-success-soft text-success-text"
+      : item.format === "XML"
+        ? "bg-accent-soft text-accent-text"
+        : "bg-primary-soft text-primary-text";
+    return (
+      <button
+        key={item.id}
+        type="button"
+        aria-pressed={isSelected}
+        onClick={() => setSelectedFileId(item.id)}
+        className={`${surfaceClassName} flex min-h-[13rem] min-w-0 flex-col gap-3 p-4 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          isSelected ? "border-primary bg-primary-soft/20" : "hover:border-accent"
+        }`}
       >
-        <h2 className="mb-3 px-3 text-dynamic-xs font-semibold uppercase tracking-wide text-muted">{t("file.sidebar.folders")}</h2>
-        {renderFolderNavigation()}
-      </aside>
+        <span className="flex w-full items-start justify-between gap-3">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>
+            <FileFormatIcon format={item.format} className="h-5 w-5" />
+          </span>
+          <span className="rounded-md border border-theme bg-surface-elevated px-2 py-1 font-mono text-dynamic-xs font-bold text-foreground">
+            {item.format}
+          </span>
+        </span>
+        <span className="min-w-0">
+          <span className="block line-clamp-2 min-h-10 text-dynamic-sm font-bold leading-snug text-foreground">
+            {localize(item.title)}
+          </span>
+          <span className="mt-1 block truncate font-mono text-dynamic-xs text-muted">{item.fileName}</span>
+        </span>
+        <span className="mt-auto flex w-full items-center justify-between gap-2 text-dynamic-xs text-muted">
+          <span className="flex min-w-0 items-center gap-1.5 truncate">
+            <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{t(`file.folder.${item.folder}`)}</span>
+          </span>
+          <span className="shrink-0 tabular-nums">{item.updatedAt}</span>
+        </span>
+        <span className={`inline-flex w-fit max-w-full truncate rounded-md px-2 py-1 text-dynamic-xs font-semibold ${VAULT_TIER_STYLES[item.pdplTier]}`}>
+          {t(`file.tier.${item.pdplTier}`)}
+        </span>
+      </button>
+    );
+  };
 
-      <div className="min-w-0 flex-1 space-y-4">
-        <PageHeader
-          eyebrow={t("nav.group.documents")}
-          title={t("file.header.title")}
-          actions={(
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+  return (
+    <div className="min-w-0 space-y-4">
+      {!documentEditorOpen && (
+        <>
+          <PageHeader
+            eyebrow={t("nav.group.documents")}
+            title={t("file.header.title")}
+            actions={(
+              <div className="flex w-full flex-wrap items-center justify-end gap-2">
+                <div className="relative min-w-[12rem] flex-1 sm:flex-none">
+                  <Search aria-hidden="true" className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <input
+                    type="search"
+                    value={localSearchQuery}
+                    onChange={(event) => setLocalSearchQuery(event.target.value)}
+                    placeholder={t("file.search.placeholder")}
+                    aria-label={t("file.search.label")}
+                    className={`${inlineFormControlClassName} w-full ps-9 sm:w-56`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-controls="files-filter-controls"
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  className={secondaryButtonClass}
+                >
+                  <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+                  <span>{t("file.filter.button")}</span>
+                </button>
+                <div role="group" aria-label={t("file.view.label")} className="inline-flex items-center rounded-md border border-theme bg-surface-elevated p-1">
+                  <button
+                    type="button"
+                    aria-label={t("file.view.grid")}
+                    aria-pressed={viewMode === "GRID"}
+                    onClick={() => setViewMode("GRID")}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "GRID" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
+                  >
+                    <Grid2X2 aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("file.view.list")}
+                    aria-pressed={viewMode === "LIST"}
+                    onClick={() => setViewMode("LIST")}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "LIST" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
+                  >
+                    <List aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </div>
+                {canOpenDocMaker && (
+                  <button type="button" onClick={() => openDocumentEditor("BLANK")} className={secondaryButtonClass}>
+                    <FileText aria-hidden="true" className="h-4 w-4" />
+                    <span>{t("file.btn.new_document")}</span>
+                  </button>
+                )}
+                <input ref={fileInputRef} type="file" onChange={handleNativeFileUpload} className="hidden" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className={primaryButtonClass}>
+                  <Upload aria-hidden="true" className="h-4 w-4" />
+                  <span>{t("file.btn.upload")}</span>
+                </button>
+              </div>
+            )}
+          />
+
+          <PrototypeNotice label={t("collab.badge.local_demo")}>{t("file.prototype.notice")}</PrototypeNotice>
+          {documentSavedNotice && (
+            <div role="status" aria-live="polite" className="flex items-center justify-between gap-3 border border-success bg-success-soft px-3 py-2 text-dynamic-xs font-semibold text-success-text">
+              <span className="min-w-0 break-words">{t("doc.status.saved")}</span>
               <button
                 type="button"
-                aria-controls={isWideScreen ? "files-folder-sidebar" : "files-folder-drawer"}
-                aria-expanded={isWideScreen ? folderSidebarOpen : folderDrawerOpen}
-                aria-label={`${t("file.sidebar.folders")}: ${t(`file.folder.${activeFolder}`)}`}
-                title={t("file.sidebar.folders")}
-                onClick={toggleFolderNavigation}
-                className={secondaryButtonClass}
+                onClick={() => setDocumentSavedNotice(false)}
+                title={t("doc.action.close")}
+                aria-label={t("doc.action.close")}
+                className={iconButtonClass}
               >
-                <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                <span>{t(`file.folder.${activeFolder}`)}</span>
-              </button>
-              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="UPDATED_DESC">{t("ui.sort.updated_desc")}</option>
-                <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
-                <option value="SIZE_DESC">{t("ui.sort.size_desc")}</option>
-              </select>
-              <input ref={fileInputRef} type="file" onChange={handleNativeFileUpload} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className={primaryButtonClass}>
-                <Upload className="h-4 w-4" />
-                <span>{t("file.btn.upload")}</span>
+                <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           )}
-        />
 
-        <ResponsiveDrawer
-          id="files-folder-drawer"
-          open={folderDrawerOpen}
-          onClose={() => setFolderDrawerOpen(false)}
-          title={t("file.sidebar.folders")}
-          closeLabel={t("ui.close")}
-          placement="start"
-        >
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">{renderFolderNavigation()}</div>
-        </ResponsiveDrawer>
+          {filtersOpen && (
+            <section id="files-filter-controls" aria-label={t("file.filter.title")} className={`${surfaceClassName} grid grid-cols-1 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end`}>
+              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                <span>{t("file.filter.classification")}</span>
+                <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value as VaultTierFilter)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                  <option value="ALL">{t("file.filter.all")}</option>
+                  <option value="PDPL_RESTRICTED">{t("file.tier.PDPL_RESTRICTED")}</option>
+                  <option value="STATUTORY_ARCHIVE">{t("file.tier.STATUTORY_ARCHIVE")}</option>
+                  <option value="B2B_CONFIDENTIAL">{t("file.tier.B2B_CONFIDENTIAL")}</option>
+                </select>
+              </label>
+              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                <span>{t("ui.sort_by")}</span>
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                  <option value="UPDATED_DESC">{t("ui.sort.updated_desc")}</option>
+                  <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+                  <option value="SIZE_DESC">{t("ui.sort.size_desc")}</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setTierFilter("ALL");
+                  setSortBy("UPDATED_DESC");
+                  setLocalSearchQuery("");
+                  selectFolder("ALL");
+                }}
+                className={`${secondaryButtonClass} sm:mb-0.5`}
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+                <span>{t("file.filter.clear")}</span>
+              </button>
+            </section>
+          )}
+        </>
+      )}
 
-        <DataTableFrame
-            title={t("file.table.title")}
-            count={filteredFiles.length}
-            countLabel={t("ui.records")}
-          >
-              <table className="min-w-[860px] w-full border-collapse text-start">
-                <thead>
-                  <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs uppercase">
-                    <th className="py-3.5 ps-5 pe-3 text-start font-bold">
-                      {t("file.col.name")}
-                    </th>
-                    <th className="py-3.5 px-3 text-start font-bold">
-                      {t("file.col.format_size")}
-                    </th>
-                    <th className="py-3.5 px-3 text-start font-bold">
-                      {t("file.col.hash")}
-                    </th>
-                    <th className="py-3.5 ps-3 pe-5 text-end font-bold">
-                      {t("file.col.actions")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-theme">
-                  {filteredFiles.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="transition-colors hover:bg-primary-soft/30"
-                    >
-                      <td className="py-4 ps-5 pe-3 align-top">
-                        <div className="flex items-start gap-2.5">
-                          {item.format === "XLSX" ? (
-                            <FileSpreadsheet className="w-5 h-5 text-success mt-0.5 shrink-0" />
-                          ) : item.format === "XML" ? (
-                            <FileCode2 className="w-5 h-5 text-accent mt-0.5 shrink-0" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                          )}
-                          <div>
-                            <div className="font-bold text-dynamic-sm text-foreground">
-                              {localize(item.title)}
-                            </div>
-                            <div className="text-dynamic-xs font-mono text-muted">
-                              {item.fileName} • {item.updatedAt}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
+      <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] gap-2 min-[360px]:grid-cols-[3.75rem_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
+        <aside className="sticky top-4 max-h-[calc(100vh-2rem)] min-w-0 self-start overflow-y-auto" aria-labelledby="files-folders-heading">
+          <h2 id="files-folders-heading" className="sr-only sm:not-sr-only sm:mb-2 sm:text-dynamic-sm sm:font-semibold sm:text-muted">{t("file.section.folders")}</h2>
+          <p className="sr-only">{t("file.section.folders_note")}</p>
+          <div id="files-folder-tablist" role="tablist" aria-label={t("file.section.folders")} aria-orientation="vertical" className="flex min-w-0 flex-col items-stretch gap-1.5 border-e border-theme pe-1.5 sm:pe-2">
+            {VAULT_FOLDERS.map((folder) => {
+              const selected = activeFolder === folder;
+              const count = folder === "ALL" ? files.length : files.filter((file) => file.folder === folder).length;
+              const FolderIcon = folder === "ALL" ? FolderOpen : folder === "DOCMAKER" ? FileText : Folder;
+              return (
+                <button
+                  key={folder}
+                  id={`files-folder-${folder}-tab`}
+                  type="button"
+                  role="tab"
+                  aria-label={`${t(`file.folder.${folder}`)} (${count} ${t("ui.records")})`}
+                  title={t(`file.folder.${folder}`)}
+                  aria-selected={selected}
+                  aria-controls="files-folder-panel"
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => selectFolder(folder)}
+                  onKeyDown={(event) => moveFolderFocus(event, folder)}
+                  className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1 border-s-2 px-1 py-1.5 text-center text-dynamic-xs font-semibold leading-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:min-h-11 sm:flex-row sm:justify-start sm:gap-2.5 sm:px-3 sm:text-start sm:text-dynamic-sm ${
+                    selected ? "border-primary font-bold text-primary-text" : "border-transparent text-muted hover:bg-surface-elevated/60 hover:text-foreground"
+                  }`}
+                >
+                  <FolderIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  <span className="sr-only min-w-0 break-words sm:not-sr-only">{t(`file.folder.${folder}`)}</span>
+                  <span className="hidden shrink-0 font-mono text-dynamic-xs text-muted sm:inline-flex">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-                      <td className="py-4 px-3 align-top font-mono">
-                        <span className="px-2.5 py-0.5 rounded bg-primary-soft text-primary font-bold text-dynamic-xs">
-                          {item.format}
-                        </span>
-                        <div className="text-dynamic-xs text-muted pt-1">
-                          {item.sizeLabel}
-                        </div>
-                      </td>
-
-                      <td className="py-4 px-3 align-top">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-elevated border border-theme text-dynamic-xs font-mono text-foreground">
-                          <Lock className="w-3 h-3 text-primary" />
-                          <span>{item.sha256Short}</span>
-                        </div>
-                        <div className="text-dynamic-xs font-bold text-accent pt-1">
-                          {t(`file.tier.${item.pdplTier}`)}
-                        </div>
-                      </td>
-
-                      <td className="py-4 ps-3 pe-5 align-top text-end">
-                        <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onOpenInDocMaker(item.linkedTemplateId)
-                            }
-                            className={primaryButtonClass}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            <span>{t("file.btn.open_in_docmaker")}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadFile(item)}
-                            className={secondaryButtonClass}
-                          >
-                            <Download className="h-4 w-4" />
-                            <span>{t(item.dataUrl ? "file.btn.download" : "file.btn.download_manifest")}</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredFiles.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-dynamic-sm text-muted">
+        <div key={`${activeFolder}-${documentEditorOpen ? "editor" : "files"}`} id="files-folder-panel" role="tabpanel" aria-labelledby={`files-folder-${activeFolder}-tab`} tabIndex={0} className="app-panel-enter min-w-0">
+          {documentEditorOpen ? (
+            <DocMakerModule
+              initialTemplateId={documentTemplateId}
+              onSaveToVault={saveDocumentToVault}
+              onReturnToFiles={() => setDocumentEditorOpen(false)}
+            />
+          ) : (
+            <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-5">
+              <div className="min-w-0 space-y-5">
+                {viewMode === "GRID" ? (
+                  <section aria-labelledby="files-library-heading" className="space-y-3">
+                    <div className="flex flex-wrap items-end justify-between gap-2 border-b border-theme pb-2">
+                      <h2 id="files-library-heading" className="text-dynamic-base font-bold text-foreground">{t("file.section.library")}</h2>
+                      <span className="text-dynamic-xs font-semibold tabular-nums text-muted">{filteredFiles.length} {t("ui.records")}</span>
+                    </div>
+                    {filteredFiles.length ? (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                        {filteredFiles.map(renderFileCard)}
+                      </div>
+                    ) : (
+                      <div className={`${surfaceClassName} p-8 text-center text-dynamic-sm text-muted`}>
                         {t("ui.no_results")}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-          </DataTableFrame>
+                      </div>
+                    )}
+                  </section>
+                ) : (
+                  <DataTableFrame title={t("file.section.library")} count={filteredFiles.length} countLabel={t("ui.records")}>
+                    <table className="min-w-[760px] w-full border-collapse text-start">
+                      <thead>
+                        <tr className="border-b border-theme bg-surface-elevated text-dynamic-xs uppercase text-muted">
+                          <th className="py-3.5 ps-5 pe-3 text-start font-bold">{t("file.col.name")}</th>
+                          <th className="px-3 py-3.5 text-start font-bold">{t("file.col.format_size")}</th>
+                          <th className="px-3 py-3.5 text-start font-bold">{t("file.col.hash")}</th>
+                          <th className="py-3.5 ps-3 pe-5 text-end font-bold">{t("file.col.actions")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme">
+                        {filteredFiles.map((item) => {
+                          const isSelected = selectedItem?.id === item.id;
+                          return (
+                            <tr key={item.id} className={`transition-colors ${isSelected ? "bg-primary-soft/20" : "hover:bg-surface-elevated"}`}>
+                              <td className="py-3.5 ps-5 pe-3 align-top">
+                                <button type="button" aria-pressed={isSelected} onClick={() => setSelectedFileId(item.id)} className="flex min-w-0 items-start gap-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-text"><FileFormatIcon format={item.format} /></span>
+                                  <span className="min-w-0">
+                                    <span className="block text-dynamic-sm font-bold text-foreground">{localize(item.title)}</span>
+                                    <span className="mt-0.5 block truncate font-mono text-dynamic-xs text-muted">{item.fileName}</span>
+                                  </span>
+                                </button>
+                              </td>
+                              <td className="px-3 py-3.5 align-top">
+                                <span className="rounded-md border border-theme bg-surface-elevated px-2 py-1 font-mono text-dynamic-xs font-bold text-foreground">{item.format}</span>
+                                <span className="mt-2 block text-dynamic-xs text-muted">{item.sizeLabel}</span>
+                              </td>
+                              <td className="px-3 py-3.5 align-top">
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-surface-elevated px-2 py-1 font-mono text-dynamic-xs text-foreground"><Lock aria-hidden="true" className="h-3 w-3 text-primary-text" />{item.sha256Short}</span>
+                                <span className={`mt-2 block w-fit rounded-md px-2 py-1 text-dynamic-xs font-semibold ${VAULT_TIER_STYLES[item.pdplTier]}`}>{t(`file.tier.${item.pdplTier}`)}</span>
+                              </td>
+                              <td className="py-3.5 ps-3 pe-5 align-top text-end">{fileActions(item, true)}</td>
+                            </tr>
+                          );
+                        })}
+                        {filteredFiles.length === 0 && (
+                          <tr><td colSpan={4} className="px-5 py-8 text-center text-dynamic-sm text-muted">{t("ui.no_results")}</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </DataTableFrame>
+                )}
+              </div>
+
+              <aside aria-labelledby="files-preview-heading" className={`${surfaceClassName} h-fit min-w-0 p-4 xl:sticky xl:top-20 xl:self-start`}>
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-theme pb-3">
+                  <div className="min-w-0 flex-1 basis-24">
+                    <h2 id="files-preview-heading" className="text-dynamic-base font-bold text-foreground">{t("file.preview.title")}</h2>
+                    {selectedItem && <p className="mt-1 truncate text-dynamic-xs text-muted">{selectedItem.fileName}</p>}
+                  </div>
+                  {selectedItem && <div className="shrink-0">{fileActions(selectedItem, true)}</div>}
+                </div>
+
+                {selectedItem ? (
+                  <div className="space-y-4 pt-4">
+                    <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-lg border border-theme bg-surface-elevated p-4 text-center">
+                      {selectedImage ? (
+                        <img src={selectedImage} alt={selectedItem.fileName} className="max-h-40 max-w-full rounded-md object-contain" />
+                      ) : (
+                        <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
+                          <FileFormatIcon format={selectedItem.format} className="h-7 w-7" />
+                        </span>
+                      )}
+                      <span className="font-mono text-dynamic-xs font-bold text-foreground">{selectedItem.format} · {selectedItem.sizeLabel}</span>
+                      <span className="max-w-full line-clamp-2 text-dynamic-xs text-muted">{t("file.preview.metadata_only")}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-dynamic-xs font-bold uppercase tracking-wide text-muted">{t("file.preview.details")}</h3>
+                      <dl className="divide-y divide-theme rounded-lg border border-theme bg-surface">
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 px-3 py-2.5">
+                          <dt className="min-w-0 break-words text-dynamic-xs text-muted">{t("file.meta.document_id")}</dt>
+                          <dd className="min-w-0 max-w-full break-all text-end font-mono text-dynamic-xs font-semibold text-foreground">{selectedItem.id}</dd>
+                        </div>
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 px-3 py-2.5">
+                          <dt className="min-w-0 break-words text-dynamic-xs text-muted">{t("file.meta.folder")}</dt>
+                          <dd className="min-w-0 max-w-full break-words text-end text-dynamic-xs font-semibold text-foreground">{t(`file.folder.${selectedItem.folder}`)}</dd>
+                        </div>
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 px-3 py-2.5">
+                          <dt className="min-w-0 break-words text-dynamic-xs text-muted">{t("file.meta.updated")}</dt>
+                          <dd className="min-w-0 max-w-full break-words text-end tabular-nums text-dynamic-xs font-semibold text-foreground">{selectedItem.updatedAt}</dd>
+                        </div>
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 px-3 py-2.5">
+                          <dt className="min-w-0 break-words text-dynamic-xs text-muted">{t("file.meta.classification")}</dt>
+                          <dd className={`min-w-0 max-w-full break-words rounded-md px-2 py-1 text-end text-dynamic-xs font-semibold ${VAULT_TIER_STYLES[selectedItem.pdplTier]}`}>{t(`file.tier.${selectedItem.pdplTier}`)}</dd>
+                        </div>
+                        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 px-3 py-2.5">
+                          <dt className="min-w-0 break-words text-dynamic-xs text-muted">{t("file.meta.integrity")}</dt>
+                          <dd className="min-w-0 max-w-full break-all text-end font-mono text-dynamic-xs text-foreground">{selectedItem.sha256Short}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center text-dynamic-sm text-muted">{t("file.preview.empty")}</div>
+                )}
+              </aside>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

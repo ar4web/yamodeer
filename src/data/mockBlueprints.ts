@@ -719,7 +719,7 @@ export const ZATCA_INVOICE_BLUEPRINTS: ZatcaPhase2InvoiceBlueprint[] = [
       "Y2I5ZjQxZThhM2M3NTBiNjE5ZDRlMmY4YTFjM2I1ZDdYTlfcGhhc2UyX3phdGNhX3NoYTI1Nl9kaWdlc3Q=",
     digitalSignatureEcdsa:
       "MEUCIQDk8v9L2mN4pQ6rS8tU0vW2xY4zA6bC8dE0fG2hI4jK6AIgP1qR3sT5uV7wX9yZ1aB3cD5eF7gH9iJ1kL3mN5oP7qR=",
-    csidStampId: "CSID-PROD-KSA-3104928173-V2",
+    csidStampId: "CSID-DEMO-KSA-3104928173-V2",
     issueTimestampIso: "2026-10-02T09:30:00Z",
     supplierNameEn: "Al-Yamamah Cloud & Cyber Manpower Co.",
     supplierNameAr: "شركة اليمامة للكفاءات السحابية والأمن السيبراني",
@@ -764,7 +764,7 @@ export const ZATCA_INVOICE_BLUEPRINTS: ZatcaPhase2InvoiceBlueprint[] = [
       vatTotal: "72750.00",
       xmlInvoiceHash: "cb9f41e8a3c750b619d4e2f8a1c3b5d7",
       ecdsaSignature: "MEUCIQDk8v9L2mN4pQ6rS8tU0vW2xY4z",
-      cryptographicStampPublicKey: "CSID-PROD-KSA-3104928173-V2"
+      cryptographicStampPublicKey: "CSID-DEMO-KSA-3104928173-V2"
     })
   },
   {
@@ -777,7 +777,7 @@ export const ZATCA_INVOICE_BLUEPRINTS: ZatcaPhase2InvoiceBlueprint[] = [
       "N2E4YjljMGRlMWYyY2IzNDRkNWU2ZjdhOGI5YzBkMWUyZjNhNGI1YzZkN2U4ZjBhMWIyYzNkNGU1ZjZhN2I=",
     digitalSignatureEcdsa:
       "MEYCIQCr9sT1uV3wX5yZ7aB9cD1eF3gH5iJ7kL9mN1oP3qR5sQIhAN2bC4dE6fG8hI0jK2lM4nO6pQ8rS0tU2vW4xY6zA8bC",
-    csidStampId: "CSID-PROD-KSA-3108839201-V2",
+    csidStampId: "CSID-DEMO-KSA-3108839201-V2",
     issueTimestampIso: "2026-10-02T11:15:00Z",
     supplierNameEn: "Najd Integrated Facilities & Security LLC",
     supplierNameAr: "شركة نجد المتكاملة لإدارة المرافق والحراسات",
@@ -812,7 +812,7 @@ export const ZATCA_INVOICE_BLUEPRINTS: ZatcaPhase2InvoiceBlueprint[] = [
       vatTotal: "46500.00",
       xmlInvoiceHash: "7a8b9c0de1f2cb344d5e6f7a8b9c0d1e",
       ecdsaSignature: "MEYCIQCr9sT1uV3wX5yZ7aB9cD1eF3gH",
-      cryptographicStampPublicKey: "CSID-PROD-KSA-3108839201-V2"
+      cryptographicStampPublicKey: "CSID-DEMO-KSA-3108839201-V2"
     })
   }
 ];

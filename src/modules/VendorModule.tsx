@@ -15,12 +15,13 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrentRole } from "@/context/RBACGeofenceContext";
+import { addISOCalendarYears } from "@/services/dateUtils";
 import {
   VendorContractorBlueprint,
   ZatcaPhase2InvoiceBlueprint,
   buildZatcaTlvHexArray
 } from "@/data/mockBlueprints";
-import { DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, iconButtonClass, MetricCard, PageHeader, primaryButtonClass, ResponsiveFilterDrawer, secondaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
+import { DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, secondaryButtonClass, SegmentedTabs, surfaceClassName, TabPanel, useModalFocus } from "@/components/DesignSystem";
 
 interface VendorModuleProps {
   vendors: VendorContractorBlueprint[];
@@ -116,6 +117,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
     () => vendors.find((v) => v.id === selectedAuditVendorId) || null,
     [vendors, selectedAuditVendorId]
   );
+  const vendorAuditDialogRef = useModalFocus(Boolean(selectedAuditVendor), () => setSelectedAuditVendorId(null));
 
   // Live KSA 10-Digit MOCI CR & 15-Digit ZATCA VAT Validators
   const isCrValid = useMemo(
@@ -143,7 +145,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
     const uuid = `b2b-${vendor.id.toLowerCase()}-4e21-9c04-${icv}93a4b5c6`;
     const xmlHash = `sha256_${vendor.commercialRegistrationCr}_${icv}_zatca_phase2`;
     const sig = `ECDSA_SECP256K1_SIG_${vendor.vatRegistrationNumber}_${icv}`;
-    const stamp = `CSID-PROD-KSA-${vendor.commercialRegistrationCr}-V2`;
+    const stamp = `CSID-DEMO-KSA-${vendor.commercialRegistrationCr}-V2`;
 
     const newInvoice: ZatcaPhase2InvoiceBlueprint = {
       invoiceNumber: `INV-ZATCA-2026-00${icv}`,
@@ -232,11 +234,9 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
 
   const handleRenewVendorCr = (ven: VendorContractorBlueprint) => {
     if (!onUpdateVendor) return;
-    const nextYear = new Date(ven.crExpiryDate);
-    nextYear.setFullYear(nextYear.getFullYear() + 1);
     onUpdateVendor({
       ...ven,
-      crExpiryDate: nextYear.toISOString().slice(0, 10),
+      crExpiryDate: addISOCalendarYears(ven.crExpiryDate, 1),
       complianceStatus:
         ven.saudizationActualPercent >= ven.saudizationTargetPercent
           ? "VERIFIED"
@@ -289,13 +289,13 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                   className="md:hidden"
                 />
                 <div className="hidden items-center gap-2 xl:flex">
-                  <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                  <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
                     <option value="ALL">{t("ven.filter.all_status")}</option>
                     <option value="VERIFIED">{t("ven.status.VERIFIED")}</option>
                     <option value="EXPIRING_CR">{t("ven.status.EXPIRING_CR")}</option>
                     <option value="AUDIT_HOLD">{t("ven.status.AUDIT_HOLD")}</option>
                   </select>
-                  <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                  <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
                     <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
                     <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
                     <option value="VALUE_DESC">{t("ui.sort.amount_desc")}</option>
@@ -306,6 +306,8 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
           </div>
         )}
       />
+
+      <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
 
       <ResponsiveFilterDrawer
         id="vendor-ledger-filters"
@@ -319,7 +321,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
       >
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("ven.filter.all_status")}</span>
-          <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("ven.filter.all_status")}</option>
             <option value="VERIFIED">{t("ven.status.VERIFIED")}</option>
             <option value="EXPIRING_CR">{t("ven.status.EXPIRING_CR")}</option>
@@ -328,7 +330,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("ui.sort_by")}</span>
-          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${formControlClassName} h-11`}>
             <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
             <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
             <option value="VALUE_DESC">{t("ui.sort.amount_desc")}</option>
@@ -402,7 +404,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                           <div className="text-dynamic-xs text-muted">
                             {localize(ven.category)}
                           </div>
-                          <div className="text-dynamic-xs font-mono text-primary pt-0.5">
+                          <div className="text-dynamic-xs font-mono text-primary-text pt-0.5">
                             {ven.id}
                           </div>
                         </td>
@@ -415,7 +417,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                             {ven.chamberOfCommerceId} • {t("ven.exp_short")}:{" "}
                             {ven.crExpiryDate}
                           </div>
-                          <div className="text-dynamic-xs text-accent">
+                          <div className="text-dynamic-xs text-accent-text">
                             {t("ven.vat_short")}: {ven.vatRegistrationNumber}
                           </div>
                         </td>
@@ -476,10 +478,10 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                             <span
                               className={`inline-flex items-center gap-1 px-3 py-1 rounded-full font-bold text-dynamic-xs ${
                                 ven.complianceStatus === "VERIFIED"
-                                  ? "bg-success-soft text-success"
+                                  ? "bg-success-soft text-success-text"
                                   : ven.complianceStatus === "EXPIRING_CR"
-                                  ? "bg-warning-soft text-warning"
-                                  : "bg-danger-soft text-danger"
+                                  ? "bg-warning-soft text-warning-text"
+                                  : "bg-danger-soft text-danger-text"
                               }`}
                             >
                               {ven.complianceStatus === "VERIFIED" ? (
@@ -499,7 +501,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                             onClick={() => setSelectedAuditVendorId(ven.id)}
                             className={secondaryButtonClass}
                           >
-                            <Eye className="h-4 w-4 text-primary" />
+                            <Eye className="h-4 w-4 text-primary-text" />
                             <span>{t("ven.btn.audit_modal")}</span>
                           </button>
                         </td>
@@ -578,13 +580,13 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                           {t("ven.vat_short")}: {ven.vatRegistrationNumber}
                         </div>
                       </td>
-                      <td className="py-3.5 px-2 font-mono text-dynamic-xs font-bold text-primary">
+                      <td className="py-3.5 px-2 font-mono text-dynamic-xs font-bold text-primary-text">
                         {glCode}
                       </td>
                       <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-foreground">
                         {formatCurrencySAR(ven.monthlyRetainerSar)}
                       </td>
-                      <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-danger">
+                      <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-danger-text">
                         {holdbackSar > 0
                           ? `- ${formatCurrencySAR(holdbackSar)}`
                           : formatCurrencySAR(0)}
@@ -592,10 +594,10 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                       <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm font-semibold text-foreground">
                         {formatCurrencySAR(netTaxableSar)}
                       </td>
-                      <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-warning">
+                      <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-warning-text">
                         {formatCurrencySAR(vatSar)}
                       </td>
-                      <td className="py-3.5 ps-2 pe-4 text-end font-mono text-dynamic-sm font-extrabold text-primary">
+                      <td className="py-3.5 ps-2 pe-4 text-end font-mono text-dynamic-sm font-extrabold text-primary-text">
                         {formatCurrencySAR(grandSar)}
                       </td>
                     </tr>
@@ -608,7 +610,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
 
       {/* TAB 3: REGISTER NEW B2B VENDOR / CONTRACTOR */}
       <TabPanel hidden={activeTab !== "onboard"} id="suppliers-onboard-panel" labelledBy="suppliers-onboard-tab">
-        <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+        <div className={`${surfaceClassName} p-4 space-y-4`}>
           <h2 className="text-dynamic-lg font-bold text-foreground border-b border-theme pb-3">
             {t("ven.onboard.title")}
           </h2>
@@ -627,7 +629,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     companyNameEn: e.target.value
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                className={formControlClassName}
               />
             </div>
 
@@ -644,7 +646,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     companyNameAr: e.target.value
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                className={formControlClassName}
               />
             </div>
 
@@ -668,7 +670,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
               />
               <div
                 className={`text-dynamic-xs font-semibold ${
-                  isCrValid ? "text-success" : "text-danger"
+                  isCrValid ? "text-success-text" : "text-danger-text"
                 }`}
               >
                 {isCrValid
@@ -697,7 +699,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
               />
               <div
                 className={`text-dynamic-xs font-semibold ${
-                  isVatValid ? "text-success" : "text-danger"
+                  isVatValid ? "text-success-text" : "text-danger-text"
                 }`}
               >
                 {isVatValid
@@ -719,7 +721,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     chamberOfCommerceId: e.target.value
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
 
@@ -733,7 +735,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                 onChange={(e) =>
                   setVendorForm((p) => ({ ...p, crExpiryDate: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
 
@@ -750,7 +752,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     saudizationTargetPercent: Number(e.target.value) || 0
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
 
@@ -767,7 +769,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     saudizationActualPercent: Number(e.target.value) || 0
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
 
@@ -784,7 +786,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     suppliedContractorsCount: Number(e.target.value) || 0
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
 
@@ -801,7 +803,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                     monthlyRetainerSar: Number(e.target.value) || 0
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               />
             </div>
           </div>
@@ -822,14 +824,14 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
       {/* 360° VENDOR MOCI CR, CHAMBER & SAUDIZATION SLA AUDIT MODAL */}
       {selectedAuditVendor && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-2xl w-full p-4 shadow-shell space-y-4">
+          <div ref={vendorAuditDialogRef} role="dialog" aria-modal="true" aria-labelledby="vendor-audit-dialog-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-2xl w-full p-4 shadow-shell space-y-4">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <span className="px-2.5 py-0.5 rounded-md bg-primary-soft text-primary font-mono font-bold text-dynamic-xs">
+                <span className="px-2.5 py-0.5 rounded-md bg-primary-soft text-primary-text font-mono font-bold text-dynamic-xs">
                   {selectedAuditVendor.id} •{" "}
                   {selectedAuditVendor.chamberOfCommerceId}
                 </span>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground pt-1">
+                <h2 id="vendor-audit-dialog-title" className="text-dynamic-xl font-extrabold text-foreground pt-1">
                   {t("ven.audit.title")}
                 </h2>
               </div>
@@ -845,7 +847,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
             </div>
 
             {auditToast && (
-              <div className="p-3.5 rounded-xl bg-success-soft border border-success text-success font-bold text-dynamic-xs flex items-center gap-2">
+              <div className="p-3.5 rounded-xl bg-success-soft border border-success text-success-text font-bold text-dynamic-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{t("ven.audit.Toast")}</span>
               </div>
@@ -900,7 +902,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRenewVendorCr(selectedAuditVendor)}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 bg-success px-3 py-2 text-on-primary font-bold text-dynamic-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 bg-success px-3 py-2 text-on-success font-bold text-dynamic-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   <span>{t("ven.audit.renew_cr_btn")}</span>

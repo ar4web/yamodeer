@@ -8,13 +8,13 @@ type ImageRunInstance = InstanceType<DocxRuntime["ImageRun"]>;
 type InlineDocxRun = TextRunInstance | ImageRunInstance;
 import {
   AlignCenter,
+  ArrowLeft,
   AlignJustify,
   AlignLeft,
   AlignRight,
   Bold,
   Check,
   Columns2,
-  Download,
   FileSpreadsheet,
   FileText,
   Heading1,
@@ -29,7 +29,6 @@ import {
   Printer,
   Redo2,
   Save,
-  Signature,
   SlidersHorizontal,
   Sparkles,
   Strikethrough,
@@ -42,8 +41,9 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTheme } from "@/context/ThemeContext";
-import { VaultFileItem } from "@/modules/FilesManagerModule";
-import { iconButtonBaseClass, iconButtonClass, PageHeader, primaryButtonClass, ResponsiveDrawer, secondaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
+import { getLocalISODate } from "@/services/dateUtils";
+import type { VaultFileItem } from "@/modules/FilesManagerModule";
+import { iconButtonBaseClass, iconButtonClass, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveDrawer, secondaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
 
 export type DocumentTemplateId =
   | "BLANK"
@@ -124,6 +124,7 @@ const DOCUMENT_TEMPLATE_CATEGORY_ORDER = [
 interface DocMakerModuleProps {
   onSaveToVault?: (file: VaultFileItem) => void;
   initialTemplateId?: string;
+  onReturnToFiles?: () => void;
 }
 
 interface TemplateSeed {
@@ -489,7 +490,8 @@ const dataUriToUint8 = (dataUri: string): Uint8Array | undefined => {
 
 export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
   onSaveToVault,
-  initialTemplateId
+  initialTemplateId,
+  onReturnToFiles
 }) => {
   const { t, language } = useLanguage();
   const { englishFont, arabicFont } = useTheme();
@@ -1005,7 +1007,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
       ["Layout", layout],
       ["Paper Size", paperSize],
       ["Orientation", orientation],
-      ["Issue Date", new Date().toISOString().slice(0, 10)]
+      ["Issue Date", getLocalISODate()]
     ]);
     contentSheet.getColumn(1).width = 24;
     contentSheet.getColumn(2).width = 48;
@@ -1094,8 +1096,8 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
         id: `FILE-KSA-${Date.now().toString().slice(-6)}`,
         fileName: `${slugify(documentTitle)}.docx`,
         title: {
-          en: `${documentTitle} — Doc Maker export`,
-          ar: `${documentTitle} — مستند منشأ من صانع المستندات`
+          en: `${documentTitle} — Files workspace draft`,
+          ar: `${documentTitle} — مسودة في مساحة الملفات`
         },
         folder: "DOCMAKER",
         format: "DOCX",
@@ -1103,10 +1105,14 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
         sizeLabel: `${Math.max(1, Math.round(blob.size / 1024))} KB`,
         sha256Short: `${digest.slice(0, 12)}...${digest.slice(-8)}`,
         pdplTier: "PDPL_RESTRICTED",
-        updatedAt: new Date().toISOString().slice(0, 10),
+        updatedAt: getLocalISODate(),
         linkedTemplateId: isImportedDocument ? "IMPORTED" : activeTemplateId
       };
       onSaveToVault(created);
+      if (onReturnToFiles) {
+        onReturnToFiles();
+        return;
+      }
       setToastMessage(t("doc.status.saved"));
       closeToastSoon();
     } catch {
@@ -1203,7 +1209,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
         onClick={() => setActiveLanguage(lang)}
       >
         <div className={`mb-4 flex items-center justify-between gap-3 border-b pb-2 ${isActive ? "border-primary" : "border-document-line"}`}>
-          <span className={`text-dynamic-xs font-semibold uppercase tracking-wide ${isActive ? "text-primary" : "text-muted"}`}>
+          <span className={`text-dynamic-xs font-semibold uppercase tracking-wide ${isActive ? "text-primary-text" : "text-muted"}`}>
             {t(isArabic ? "doc.editor.ar_label" : "doc.editor.en_label")}
           </span>
           <span className="font-mono text-dynamic-xs text-muted">{isArabic ? "RTL" : "LTR"}</span>
@@ -1261,6 +1267,12 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
         title={t("doc.header.title")}
         actions={(
           <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {onReturnToFiles && (
+              <button type="button" onClick={onReturnToFiles} className={secondaryButtonClass}>
+                <ArrowLeft aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
+                <span>{t("doc.action.back_to_files")}</span>
+              </button>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -1343,8 +1355,9 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
           </div>
         )}
       />
+      <PrototypeNotice label={t("collab.badge.local_demo")}>{t("doc.prototype.notice")}</PrototypeNotice>
       {toastMessage && (
-        <div className="flex items-center justify-between gap-3 border border-success bg-success-soft px-4 py-3 text-dynamic-xs font-semibold text-success">
+        <div className="flex items-center justify-between gap-3 border border-success bg-success-soft px-4 py-3 text-dynamic-xs font-semibold text-success-text">
           <span>{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage("")} title={t("doc.action.close")} aria-label={t("doc.action.close")} className={iconButtonClass}>
             <X className="h-4 w-4" />
@@ -1423,7 +1436,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               <TabPanel hidden={configPanel !== "paper"} id="doc-settings-paper-panel" labelledBy="doc-settings-paper-tab">
                 <div className="bg-surface border border-theme p-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Columns2 className="w-4 h-4 text-primary" />
+                    <Columns2 className="w-4 h-4 text-primary-text" />
                     <h2 className="text-dynamic-base font-semibold text-foreground">{t("doc.panel.page_title")}</h2>
                   </div>
                   <div className="space-y-1">
@@ -1460,7 +1473,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               <TabPanel hidden={configPanel !== "letterhead"} id="doc-settings-letterhead-panel" labelledBy="doc-settings-letterhead-tab">
                 <div className="bg-surface border border-theme p-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <ImagePlus className="w-4 h-4 text-primary" />
+                    <ImagePlus className="w-4 h-4 text-primary-text" />
                     <h2 className="text-dynamic-base font-semibold text-foreground">{t("doc.panel.brand_title")}</h2>
                   </div>
                   <div className="space-y-1">
@@ -1487,7 +1500,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               <TabPanel hidden={configPanel !== "style"} id="doc-settings-style-panel" labelledBy="doc-settings-style-tab">
                 <div className="bg-surface border border-theme p-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
+                    <Sparkles className="w-4 h-4 text-primary-text" />
                     <h2 className="text-dynamic-base font-semibold text-foreground">{t("doc.panel.styles_title")}</h2>
                   </div>
                   <input type="text" aria-label={t("doc.style.name_placeholder")} value={styleForm.name} onChange={(event) => setStyleForm((prev) => ({ ...prev, name: event.target.value }))} placeholder={t("doc.style.name_placeholder")} className="w-full px-3 py-2.5 bg-surface-elevated border border-theme text-foreground text-dynamic-xs" />
@@ -1522,7 +1535,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
                   {!!savedStyles.length && (
                     <div className="space-y-2">
                       <div className="text-dynamic-xs font-bold text-muted">{t("doc.style.saved_presets")}</div>
-                      {savedStyles.map((style) => <button key={style.id} type="button" onClick={() => applySavedStyle(style)} className="w-full flex items-center justify-between gap-2 p-2.5 bg-surface-elevated border border-theme text-start text-dynamic-xs font-semibold text-foreground"><span>{style.name || style.fontFamily}</span><Type className="w-4 h-4 text-primary" /></button>)}
+                      {savedStyles.map((style) => <button key={style.id} type="button" onClick={() => applySavedStyle(style)} className="w-full flex items-center justify-between gap-2 p-2.5 bg-surface-elevated border border-theme text-start text-dynamic-xs font-semibold text-foreground"><span>{style.name || style.fontFamily}</span><Type className="w-4 h-4 text-primary-text" /></button>)}
                     </div>
                   )}
                 </div>
@@ -1547,7 +1560,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
         )}
       </ResponsiveDrawer>
       <section className="min-w-0 overflow-hidden border border-theme bg-surface">
-        <div className="grid gap-3 border-b border-theme bg-surface p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <div className="grid min-w-0 gap-3 border-b border-theme bg-surface p-3 sm:p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="min-w-0 space-y-1">
             <label htmlFor="document-title" className="block text-dynamic-xs font-semibold text-muted">{t("doc.title.label")}</label>
             <input
@@ -1560,7 +1573,7 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               className="w-full border-b border-theme bg-transparent py-2 text-dynamic-lg font-semibold text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
             />
           </div>
-          <div className="flex flex-wrap items-stretch gap-2 xl:justify-end">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:items-stretch xl:justify-end">
             <button
               type="button"
               onClick={() => setSettingsDrawerOpen(true)}
@@ -1569,28 +1582,28 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               aria-expanded={settingsDrawerOpen}
               aria-label={t("doc.workspace.open_setup")}
               title={t("doc.workspace.open_setup")}
-              className={secondaryButtonClass}
+              className={`${secondaryButtonClass} w-full sm:col-span-2 xl:w-auto xl:min-w-32`}
             >
               <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
               <span>{t("doc.workspace.setup_short")}</span>
             </button>
-            <div className="border border-theme px-3 py-2">
+            <div className="min-w-0 border border-theme px-3 py-2 xl:min-w-[10rem] xl:flex-1">
               <span className="block text-dynamic-xs text-muted">{t(isImportedDocument ? "doc.category.imported" : DOCUMENT_TEMPLATE_CATEGORY_KEYS[activeTemplateId])}</span>
-              <span className="block max-w-56 truncate text-dynamic-sm font-semibold text-foreground">
+              <span className="block min-w-0 max-w-full truncate text-dynamic-sm font-semibold text-foreground">
                 {t(isImportedDocument ? "doc.template.imported" : activeTemplateId === "BLANK" ? "doc.template.blank" : `doc.template.${activeTemplateId}`)}
               </span>
             </div>
-            <div className="border border-theme px-3 py-2">
+            <div className="min-w-0 border border-theme px-3 py-2 xl:min-w-[10rem] xl:flex-1">
               <span className="block text-dynamic-xs text-muted">{t("doc.paper.size_label")}</span>
-              <span className="block text-dynamic-sm font-semibold text-foreground">
+              <span className="block min-w-0 truncate text-dynamic-sm font-semibold text-foreground">
                 {t(`doc.paper.size.${paperSize}`)} · {t(orientation === "PORTRAIT" ? "doc.paper.portrait" : "doc.paper.landscape")}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-theme bg-surface-elevated px-3 py-2">
-          <div role="group" aria-label={t("doc.action.formatting_toolbar")} className="flex flex-wrap items-center gap-0.5">
+        <div className="grid min-w-0 grid-cols-1 gap-2 border-b border-theme bg-surface-elevated px-3 py-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div role="group" aria-label={t("doc.action.formatting_toolbar")} className="flex min-w-0 flex-wrap items-center gap-1">
             {editorToolbar.map((tool) => {
               const Icon = tool.icon;
               return (
@@ -1601,20 +1614,20 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
                   aria-label={t(tool.key)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => runEditorCommand(tool.command, "value" in tool ? tool.value : undefined)}
-                  className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary`}
+                  className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary-text`}
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </button>
               );
             })}
-            <button type="button" title={t("doc.action.insert_table")} aria-label={t("doc.action.insert_table")} onMouseDown={(event) => event.preventDefault()} onClick={insertFinancialTable} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary`}><Table2 className="h-4 w-4" aria-hidden="true" /></button>
-            <button type="button" title={t("doc.action.insert_image")} aria-label={t("doc.action.insert_image")} onMouseDown={(event) => event.preventDefault()} onClick={() => bodyImageInputRef.current?.click()} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary`}><ImagePlus className="h-4 w-4" aria-hidden="true" /></button>
-            <button type="button" title={t("doc.action.insert_link")} aria-label={t("doc.action.insert_link")} onMouseDown={(event) => event.preventDefault()} onClick={insertLink} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary`}><Link2 className="h-4 w-4" aria-hidden="true" /></button>
-            <label title={t("doc.action.text_color")} className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-foreground hover:bg-primary-soft hover:text-primary focus-within:ring-2 focus-within:ring-primary">
+            <button type="button" title={t("doc.action.insert_table")} aria-label={t("doc.action.insert_table")} onMouseDown={(event) => event.preventDefault()} onClick={insertFinancialTable} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary-text`}><Table2 className="h-4 w-4" aria-hidden="true" /></button>
+            <button type="button" title={t("doc.action.insert_image")} aria-label={t("doc.action.insert_image")} onMouseDown={(event) => event.preventDefault()} onClick={() => bodyImageInputRef.current?.click()} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary-text`}><ImagePlus className="h-4 w-4" aria-hidden="true" /></button>
+            <button type="button" title={t("doc.action.insert_link")} aria-label={t("doc.action.insert_link")} onMouseDown={(event) => event.preventDefault()} onClick={insertLink} className={`${iconButtonBaseClass} text-foreground hover:bg-primary-soft hover:text-primary-text`}><Link2 className="h-4 w-4" aria-hidden="true" /></button>
+            <label title={t("doc.action.text_color")} className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-foreground hover:bg-primary-soft hover:text-primary-text focus-within:ring-2 focus-within:ring-primary">
               <Type className="h-4 w-4" aria-hidden="true" />
               <input type="color" value={styleForm.inkColor} onChange={(event) => { setStyleForm((prev) => ({ ...prev, inkColor: event.target.value })); runEditorCommand("foreColor", event.target.value); }} className="absolute h-0 w-0 opacity-0" aria-label={t("doc.action.text_color")} />
             </label>
-            <label title={t("doc.action.highlight")} className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-foreground hover:bg-primary-soft hover:text-primary focus-within:ring-2 focus-within:ring-primary">
+            <label title={t("doc.action.highlight")} className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-foreground hover:bg-primary-soft hover:text-primary-text focus-within:ring-2 focus-within:ring-primary">
               <Highlighter className="h-4 w-4" aria-hidden="true" />
               <input type="color" value={styleForm.highlightColor} onChange={(event) => { setStyleForm((prev) => ({ ...prev, highlightColor: event.target.value })); runEditorCommand("hiliteColor", event.target.value); }} className="absolute h-0 w-0 opacity-0" aria-label={t("doc.action.highlight")} />
             </label>
@@ -1625,10 +1638,10 @@ export const DocMakerModule: React.FC<DocMakerModuleProps> = ({
               </select>
             </label>
           </div>
-          <div className="ms-auto flex items-center gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-2 border-t border-theme pt-2 xl:ms-0 xl:border-t-0 xl:pt-0">
             <Sparkles className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
             <label htmlFor="doc-smart-token" className="sr-only">{t("doc.sidebar.smart_vars")}</label>
-            <select id="doc-smart-token" value={smartToken} onChange={(event) => insertSmartToken(event.target.value)} aria-label={t("doc.action.smart_var")} className="h-10 max-w-52 border border-theme bg-surface px-2 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+            <select id="doc-smart-token" value={smartToken} onChange={(event) => insertSmartToken(event.target.value)} aria-label={t("doc.action.smart_var")} className="h-10 w-full max-w-52 border border-theme bg-surface px-2 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">{t("doc.smart.placeholder")}</option>
               {SMART_VARIABLES.map((item) => <option key={item.token} value={item.token}>{t(item.key)}</option>)}
             </select>

@@ -21,30 +21,35 @@ import {
   useWorkHub
 } from "@/context/WorkHubContext";
 import {
+  dangerButtonClass,
   FilterDrawerEdgeTrigger,
   FilterDrawerTrigger,
+  formControlClassName,
   iconButtonBaseClass,
   iconButtonClass,
+  inlineFormControlClassName,
   MetricCard,
   PageHeader,
   ResponsiveFilterDrawer,
   SegmentedTabs,
+  surfaceClassName,
   TabPanel,
   primaryButtonClass,
-  secondaryButtonClass
+  secondaryButtonClass,
+  useModalFocus
 } from "@/components/DesignSystem";
 
 const TASK_STATUS_CLASSES: Record<WorkTaskStatus, string> = {
   TODO: "bg-surface-elevated text-muted",
-  IN_PROGRESS: "bg-primary-soft text-primary",
-  DONE: "bg-success-soft text-success"
+  IN_PROGRESS: "bg-primary-soft text-primary-text",
+  DONE: "bg-success-soft text-success-text"
 };
 
 const TASK_PRIORITY_CLASSES: Record<WorkTaskPriority, string> = {
   LOW: "bg-surface-elevated text-muted",
-  NORMAL: "bg-accent-soft text-accent",
-  HIGH: "bg-warning-soft text-warning",
-  URGENT: "bg-danger-soft text-danger"
+  NORMAL: "bg-accent-soft text-accent-text",
+  HIGH: "bg-warning-soft text-warning-text",
+  URGENT: "bg-danger-soft text-danger-text"
 };
 
 const localDateTimeValue = (date: Date): string => {
@@ -71,30 +76,36 @@ interface ModalShellProps {
   children: React.ReactNode;
 }
 
-const ModalShell: React.FC<ModalShellProps> = ({ id, title, closeLabel, onClose, children }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm">
-    <section
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`${id}-title`}
-      className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border-2 border-primary bg-surface p-4 shadow-shell"
-    >
-      <div className="flex items-start justify-between gap-3 border-b border-theme pb-3">
-        <h2 id={`${id}-title`} className="text-dynamic-lg font-bold text-foreground">{title}</h2>
-        <button
-          type="button"
-          title={closeLabel}
-          aria-label={closeLabel}
-          onClick={onClose}
-          className={iconButtonClass}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      {children}
-    </section>
-  </div>
-);
+const ModalShell: React.FC<ModalShellProps> = ({ id, title, closeLabel, onClose, children }) => {
+  const dialogRef = useModalFocus(true, onClose);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm">
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+        tabIndex={-1}
+        className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border-2 border-primary bg-surface p-4 shadow-shell"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-theme pb-3">
+          <h2 id={`${id}-title`} className="text-dynamic-lg font-bold text-foreground">{title}</h2>
+          <button
+            type="button"
+            title={closeLabel}
+            aria-label={closeLabel}
+            onClick={onClose}
+            className={iconButtonClass}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+};
 
 export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boolean }> = ({ globalSearchQuery, embedded = false }) => {
   const { t, localize, language } = useLanguage();
@@ -377,13 +388,13 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
             className="md:hidden"
           />
           <div className="hidden items-center gap-2 xl:flex">
-            <select aria-label={t("workhub.task.filter_label")} value={taskFilter} onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+            <select aria-label={t("workhub.task.filter_label")} value={taskFilter} onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
               <option value="ALL">{t("workhub.task.filter.all")}</option>
               <option value="OPEN">{t("workhub.task.filter.open")}</option>
               <option value="TODAY">{t("workhub.task.filter.today")}</option>
               <option value="COMPLETED">{t("workhub.task.filter.completed")}</option>
             </select>
-            <select aria-label={t("ui.sort_by")} value={taskSortBy} onChange={(event) => setTaskSortBy(event.target.value as typeof taskSortBy)} className="h-10 min-w-40 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+            <select aria-label={t("ui.sort_by")} value={taskSortBy} onChange={(event) => setTaskSortBy(event.target.value as typeof taskSortBy)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
               <option value="DUE_ASC">{t("ui.sort.due_asc")}</option>
               <option value="TITLE_ASC">{t("ui.sort.name_asc")}</option>
             </select>
@@ -401,7 +412,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
   );
 
   const storageStatusBadge = (
-    <span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${storageStatus === "POSTGRES" ? "bg-success-soft text-success" : storageStatus === "CONNECTING" ? "bg-warning-soft text-warning" : "bg-surface-elevated text-muted"}`}>
+    <span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${storageStatus === "POSTGRES" ? "bg-success-soft text-success-text" : storageStatus === "CONNECTING" ? "bg-warning-soft text-warning-text" : "bg-surface-elevated text-muted"}`}>
       {t(storageStatusKey)}
     </span>
   );
@@ -440,7 +451,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
       >
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("workhub.task.filter_label")}</span>
-          <select aria-label={t("workhub.task.filter_label")} value={taskFilter} onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("workhub.task.filter_label")} value={taskFilter} onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("workhub.task.filter.all")}</option>
             <option value="OPEN">{t("workhub.task.filter.open")}</option>
             <option value="TODAY">{t("workhub.task.filter.today")}</option>
@@ -449,7 +460,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("ui.sort_by")}</span>
-          <select aria-label={t("ui.sort_by")} value={taskSortBy} onChange={(event) => setTaskSortBy(event.target.value as typeof taskSortBy)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("ui.sort_by")} value={taskSortBy} onChange={(event) => setTaskSortBy(event.target.value as typeof taskSortBy)} className={`${formControlClassName} h-11`}>
             <option value="DUE_ASC">{t("ui.sort.due_asc")}</option>
             <option value="TITLE_ASC">{t("ui.sort.name_asc")}</option>
           </select>
@@ -468,7 +479,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
       )}
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-theme bg-surface p-3 text-dynamic-xs text-muted">
-        <BookOpen className="h-4 w-4 shrink-0 text-primary" />
+        <BookOpen className="h-4 w-4 shrink-0 text-primary-text" />
         <span>{t(storageNoticeKey)}</span>
       </div>
 
@@ -494,7 +505,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
             <MetricCard label={t("workhub.task.metric.overdue")} value={overdueTaskCount} icon={<CalendarClock className="h-5 w-5" />} tone="danger" />
           </div>
 
-          <section className="space-y-3 rounded-2xl border border-theme bg-surface p-4 shadow-card">
+          <section className={`${surfaceClassName} space-y-3 p-4`}>
             <div>
               <h2 className="text-dynamic-lg font-semibold text-foreground">{t("workhub.task.list_title")}</h2>
             </div>
@@ -512,7 +523,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                           aria-label={t(task.status === "DONE" ? "workhub.task.mark_open" : "workhub.task.mark_done")}
                           aria-pressed={task.status === "DONE"}
                           onClick={() => updateTask(task.id, { status: task.status === "DONE" ? "TODO" : "DONE" })}
-                          className={`${iconButtonBaseClass} mt-0.5 ${task.status === "DONE" ? "bg-success-soft text-success" : "bg-surface text-muted hover:bg-surface-muted hover:text-primary"}`}
+                          className={`${iconButtonBaseClass} mt-0.5 ${task.status === "DONE" ? "bg-success-soft text-success-text" : "bg-surface text-muted hover:bg-surface-muted hover:text-primary-text"}`}
                         >
                           <CheckCircle2 className="h-4 w-4" />
                         </button>
@@ -524,11 +535,11 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                           </div>
                           {localize(task.description) && <p className="whitespace-pre-wrap text-dynamic-xs text-muted">{localize(task.description)}</p>}
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-dynamic-xs text-muted">
-                            <span className={`inline-flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
+                            <span className={`inline-flex items-center gap-1.5 ${overdue ? "font-semibold text-danger-text" : ""}`}>
                               <CalendarClock className="h-3.5 w-3.5" />
                               {task.dueAt ? `${t("workhub.task.due_label")} ${formatDateTime(task.dueAt, language)}` : t("workhub.task.no_due_date")}
                             </span>
-                            {overdue && <span className="rounded-full bg-danger-soft px-2 py-0.5 font-semibold text-danger">{t("workhub.task.overdue_badge")}</span>}
+                            {overdue && <span className="rounded-full bg-danger-soft px-2 py-0.5 font-semibold text-danger-text">{t("workhub.task.overdue_badge")}</span>}
                           </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -543,10 +554,10 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                             <option value="IN_PROGRESS">{t("workhub.task.status.IN_PROGRESS")}</option>
                             <option value="DONE">{t("workhub.task.status.DONE")}</option>
                           </select>
-                          <button type="button" title={t("workhub.task.edit")} aria-label={t("workhub.task.edit")} onClick={() => openEditTask(task)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-primary-soft hover:text-primary`}>
+                          <button type="button" title={t("workhub.task.edit")} aria-label={t("workhub.task.edit")} onClick={() => openEditTask(task)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-primary-soft hover:text-primary-text`}>
                             <Pencil className="h-4 w-4" />
                           </button>
-                          <button type="button" title={t("workhub.task.delete")} aria-label={t("workhub.task.delete")} onClick={() => deleteTask(task.id)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-danger-soft hover:text-danger`}>
+                          <button type="button" title={t("workhub.task.delete")} aria-label={t("workhub.task.delete")} onClick={() => deleteTask(task.id)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-danger-soft hover:text-danger-text`}>
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -557,7 +568,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-theme bg-surface-elevated p-8 text-center">
-                <ListTodo className="mx-auto h-8 w-8 text-primary" />
+                <ListTodo className="mx-auto h-8 w-8 text-primary-text" />
                 <h3 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("workhub.task.empty_title")}</h3>
                 <p className="mx-auto mt-1 max-w-lg text-dynamic-xs text-muted">{t("workhub.task.empty_description")}</p>
                 <button type="button" onClick={openNewTask} className={`${primaryButtonClass} mt-4`}>
@@ -577,7 +588,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
             <MetricCard label={t("workhub.reminder.metric.due")} value={dueReminderCount} icon={<CalendarClock className="h-5 w-5" />} tone="warning" />
             <MetricCard label={t("workhub.reminder.metric.completed")} value={completedReminderCount} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
           </div>
-          <section className="space-y-3 rounded-2xl border border-theme bg-surface p-4 shadow-card">
+          <section className={`${surfaceClassName} space-y-3 p-4`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-dynamic-lg font-semibold text-foreground">{t("workhub.reminder.list_title")}</h2>
@@ -589,7 +600,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                   const dueTime = new Date(reminder.dueAt).getTime();
                   const isDue = reminder.status === "ACTIVE" && dueTime <= nowMs;
                   const isSoon = reminder.status === "ACTIVE" && dueTime > nowMs && dueTime <= nowMs + 60 * 60_000;
-                  const toneClass = reminder.status === "DONE" ? "bg-success-soft text-success" : isDue ? "bg-danger-soft text-danger" : isSoon ? "bg-warning-soft text-warning" : "bg-primary-soft text-primary";
+                  const toneClass = reminder.status === "DONE" ? "bg-success-soft text-success-text" : isDue ? "bg-danger-soft text-danger-text" : isSoon ? "bg-warning-soft text-warning-text" : "bg-primary-soft text-primary-text";
                   const dueLabel = reminder.status === "DONE" ? t("workhub.reminder.badge.completed") : isDue ? t("workhub.reminder.badge.overdue") : isSoon ? t("workhub.reminder.badge.soon") : t("workhub.reminder.badge.upcoming");
                   return (
                     <article key={reminder.id} className="flex flex-col justify-between gap-3 rounded-xl border border-theme bg-surface-elevated p-4">
@@ -625,7 +636,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                         <button type="button" onClick={() => openEditReminder(reminder)} className={secondaryButtonClass}>
                           <Pencil className="h-4 w-4" /><span>{t("workhub.reminder.button.edit")}</span>
                         </button>
-                        <button type="button" title={t("workhub.reminder.button.delete")} aria-label={t("workhub.reminder.button.delete")} onClick={() => deleteReminder(reminder.id)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-danger-soft hover:text-danger`}>
+                        <button type="button" title={t("workhub.reminder.button.delete")} aria-label={t("workhub.reminder.button.delete")} onClick={() => deleteReminder(reminder.id)} className={`${iconButtonBaseClass} bg-surface text-muted hover:bg-danger-soft hover:text-danger-text`}>
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -635,7 +646,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-theme bg-surface-elevated p-8 text-center">
-                <Bell className="mx-auto h-8 w-8 text-primary" />
+                <Bell className="mx-auto h-8 w-8 text-primary-text" />
                 <h3 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("workhub.reminder.empty_title")}</h3>
                 <p className="mx-auto mt-1 max-w-lg text-dynamic-xs text-muted">{t("workhub.reminder.empty_description")}</p>
                 <button type="button" onClick={openNewReminder} className={`${primaryButtonClass} mt-4`}>
@@ -649,12 +660,12 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
 
       <TabPanel hidden={activeTab !== "notebooks"} id="workhub-notebooks-panel" labelledBy="workhub-notebooks-tab">
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <section className="space-y-3 rounded-2xl border border-theme bg-surface p-4 shadow-card xl:col-span-4">
+          <section className={`${surfaceClassName} space-y-3 p-4 xl:col-span-4`}>
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-dynamic-base font-semibold text-foreground">{t("workhub.notebook.list_title")}</h2>
               </div>
-              <button type="button" title={t("workhub.button.new_notebook")} aria-label={t("workhub.button.new_notebook")} onClick={openNewNotebook} className={`${iconButtonBaseClass} bg-surface-elevated text-primary hover:bg-primary-soft`}>
+              <button type="button" title={t("workhub.button.new_notebook")} aria-label={t("workhub.button.new_notebook")} onClick={openNewNotebook} className={`${iconButtonBaseClass} bg-surface-elevated text-primary-text hover:bg-primary-soft`}>
                 <PlusCircle className="h-4 w-4" />
               </button>
             </div>
@@ -673,7 +684,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                     }}
                     className={`flex w-full items-start gap-3 rounded-xl border p-3 text-start transition ${activeNotebookId === notebook.id ? "border-primary bg-primary-soft" : "border-theme bg-surface-elevated hover:border-primary/50"}`}
                   >
-                    <BookOpen className={`mt-0.5 h-4 w-4 shrink-0 ${activeNotebookId === notebook.id ? "text-primary" : "text-muted"}`} />
+                    <BookOpen className={`mt-0.5 h-4 w-4 shrink-0 ${activeNotebookId === notebook.id ? "text-primary-text" : "text-muted"}`} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-dynamic-sm font-semibold text-foreground">{localize(notebook.title)}</span>
                       <span className="block text-dynamic-xs text-muted">{notebook.entries.length} {t("workhub.notebook.note_count")}</span>
@@ -691,7 +702,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
             )}
           </section>
 
-          <section className="min-w-0 space-y-3 rounded-2xl border border-theme bg-surface p-4 shadow-card xl:col-span-8">
+          <section className={`min-w-0 ${surfaceClassName} space-y-3 p-4 xl:col-span-8`}>
             {activeNotebook ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-theme pb-3">
@@ -706,7 +717,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                     <button type="button" onClick={openRenameNotebook} className={secondaryButtonClass}>
                       <Pencil className="h-4 w-4" /><span>{t("workhub.notebook.rename")}</span>
                     </button>
-                    <button type="button" onClick={() => setConfirmNotebookDelete((current) => !current)} title={t("workhub.notebook.delete")} aria-label={t("workhub.notebook.delete")} className={`${iconButtonBaseClass} bg-surface-elevated text-muted hover:bg-danger-soft hover:text-danger`}>
+                    <button type="button" onClick={() => setConfirmNotebookDelete((current) => !current)} title={t("workhub.notebook.delete")} aria-label={t("workhub.notebook.delete")} className={`${iconButtonBaseClass} bg-surface-elevated text-muted hover:bg-danger-soft hover:text-danger-text`}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -714,10 +725,10 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
 
                 {confirmNotebookDelete && (
                   <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger bg-danger-soft p-3">
-                    <span className="text-dynamic-xs font-semibold text-danger">{t("workhub.notebook.delete_confirm")}</span>
+                    <span className="text-dynamic-xs font-semibold text-danger-text">{t("workhub.notebook.delete_confirm")}</span>
                     <span className="flex gap-2">
                       <button type="button" onClick={() => setConfirmNotebookDelete(false)} className={secondaryButtonClass}>{t("workhub.button.cancel")}</button>
-                      <button type="button" onClick={removeActiveNotebook} className="inline-flex min-h-10 items-center justify-center bg-danger px-4 py-2 text-dynamic-sm font-semibold text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2">{t("workhub.button.confirm_delete")}</button>
+                      <button type="button" onClick={removeActiveNotebook} className={dangerButtonClass}>{t("workhub.button.confirm_delete")}</button>
                     </span>
                   </div>
                 )}
@@ -738,7 +749,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                             }}
                             className={`w-full rounded-xl border p-3 text-start transition ${selectedEntryId === entry.id ? "border-primary bg-primary-soft" : "border-theme bg-surface-elevated hover:border-primary/50"}`}
                           >
-                            <span className="flex items-center gap-2 text-dynamic-sm font-semibold text-foreground"><FileText className="h-4 w-4 shrink-0 text-primary" /><span className="truncate">{localize(entry.title)}</span></span>
+                            <span className="flex items-center gap-2 text-dynamic-sm font-semibold text-foreground"><FileText className="h-4 w-4 shrink-0 text-primary-text" /><span className="truncate">{localize(entry.title)}</span></span>
                             <span className="mt-1 block line-clamp-2 whitespace-pre-wrap text-dynamic-xs text-muted">{localize(entry.content) || t("workhub.note.empty_preview")}</span>
                           </button>
                         ))}
@@ -765,7 +776,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                             value={entryTitleDraft}
                             onChange={(event) => setEntryTitleDraft(event.target.value)}
                             maxLength={120}
-                            className="w-full rounded-xl border border-theme bg-surface px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className={formControlClassName}
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -776,20 +787,20 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                             value={entryContentDraft}
                             onChange={(event) => setEntryContentDraft(event.target.value)}
                             placeholder={t("workhub.note.content_placeholder")}
-                            className="w-full resize-y rounded-xl border border-theme bg-surface px-3.5 py-3 text-dynamic-sm leading-relaxed text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className={`${formControlClassName} resize-y py-3 leading-relaxed`}
                           />
                         </div>
                         {confirmEntryDelete && (
                           <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger bg-danger-soft p-3">
-                            <span className="text-dynamic-xs font-semibold text-danger">{t("workhub.note.delete_confirm")}</span>
+                            <span className="text-dynamic-xs font-semibold text-danger-text">{t("workhub.note.delete_confirm")}</span>
                             <span className="flex gap-2">
                               <button type="button" onClick={() => setConfirmEntryDelete(false)} className={secondaryButtonClass}>{t("workhub.button.cancel")}</button>
-                              <button type="button" onClick={removeActiveEntry} className="inline-flex min-h-10 items-center justify-center bg-danger px-4 py-2 text-dynamic-sm font-semibold text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2">{t("workhub.button.confirm_delete")}</button>
+                              <button type="button" onClick={removeActiveEntry} className={dangerButtonClass}>{t("workhub.button.confirm_delete")}</button>
                             </span>
                           </div>
                         )}
                         <div className="flex flex-wrap justify-between gap-2 border-t border-theme pt-3">
-                          <button type="button" onClick={() => setConfirmEntryDelete((current) => !current)} className="inline-flex items-center gap-2 rounded-xl border border-theme px-3 py-2 text-dynamic-xs font-semibold text-muted hover:border-danger hover:text-danger">
+                          <button type="button" onClick={() => setConfirmEntryDelete((current) => !current)} className="inline-flex items-center gap-2 rounded-xl border border-theme px-3 py-2 text-dynamic-xs font-semibold text-muted hover:border-danger hover:text-danger-text">
                             <Trash2 className="h-4 w-4" /><span>{t("workhub.note.delete")}</span>
                           </button>
                           <button type="submit" disabled={!isEntryDirty} className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}>
@@ -799,7 +810,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
                       </form>
                     ) : (
                       <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-theme bg-surface-elevated p-8 text-center">
-                        <BookOpen className="h-9 w-9 text-primary" />
+                        <BookOpen className="h-9 w-9 text-primary-text" />
                         <h3 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("workhub.notebook.empty_notes")}</h3>
                         <p className="mt-1 text-dynamic-xs text-muted">{t("workhub.notebook.empty_notes_description")}</p>
                         <button type="button" onClick={createEntry} className={`${primaryButtonClass} mt-4`}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_note")}</span></button>
@@ -810,7 +821,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
               </>
             ) : (
               <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-theme bg-surface-elevated p-8 text-center">
-                <BookOpen className="h-9 w-9 text-primary" />
+                <BookOpen className="h-9 w-9 text-primary-text" />
                 <h2 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("workhub.notebook.empty_title")}</h2>
                 <p className="mt-1 text-dynamic-xs text-muted">{t("workhub.notebook.empty_description")}</p>
                 <button type="button" onClick={openNewNotebook} className={`${primaryButtonClass} mt-4`}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_notebook")}</span></button>
@@ -825,20 +836,20 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
           <form onSubmit={submitTask} className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="workhub-task-title" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.title")}</label>
-              <input id="workhub-task-title" required autoFocus maxLength={160} value={taskDraft.title} onChange={(event) => setTaskDraft((draft) => ({ ...draft, title: event.target.value }))} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <input id="workhub-task-title" required autoFocus maxLength={160} value={taskDraft.title} onChange={(event) => setTaskDraft((draft) => ({ ...draft, title: event.target.value }))} className={formControlClassName} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="workhub-task-description" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.description")}</label>
-              <textarea id="workhub-task-description" rows={3} maxLength={1000} value={taskDraft.description} onChange={(event) => setTaskDraft((draft) => ({ ...draft, description: event.target.value }))} className="w-full resize-y rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <textarea id="workhub-task-description" rows={3} maxLength={1000} value={taskDraft.description} onChange={(event) => setTaskDraft((draft) => ({ ...draft, description: event.target.value }))} className={`${formControlClassName} resize-y`} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label htmlFor="workhub-task-due" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.due_date")}</label>
-                <input id="workhub-task-due" type="datetime-local" value={taskDraft.dueAt} onChange={(event) => setTaskDraft((draft) => ({ ...draft, dueAt: event.target.value }))} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground" />
+                <input id="workhub-task-due" type="datetime-local" value={taskDraft.dueAt} onChange={(event) => setTaskDraft((draft) => ({ ...draft, dueAt: event.target.value }))} className={formControlClassName} />
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="workhub-task-priority" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.priority")}</label>
-                <select id="workhub-task-priority" value={taskDraft.priority} onChange={(event) => setTaskDraft((draft) => ({ ...draft, priority: event.target.value as WorkTaskPriority }))} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground">
+                <select id="workhub-task-priority" value={taskDraft.priority} onChange={(event) => setTaskDraft((draft) => ({ ...draft, priority: event.target.value as WorkTaskPriority }))} className={formControlClassName}>
                   <option value="LOW">{t("workhub.task.priority.LOW")}</option>
                   <option value="NORMAL">{t("workhub.task.priority.NORMAL")}</option>
                   <option value="HIGH">{t("workhub.task.priority.HIGH")}</option>
@@ -859,15 +870,15 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
           <form onSubmit={submitReminder} className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="workhub-reminder-title" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.title")}</label>
-              <input id="workhub-reminder-title" required autoFocus maxLength={160} value={reminderDraft.title} onChange={(event) => setReminderDraft((draft) => ({ ...draft, title: event.target.value }))} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <input id="workhub-reminder-title" required autoFocus maxLength={160} value={reminderDraft.title} onChange={(event) => setReminderDraft((draft) => ({ ...draft, title: event.target.value }))} className={formControlClassName} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="workhub-reminder-details" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.description")}</label>
-              <textarea id="workhub-reminder-details" rows={3} maxLength={1000} value={reminderDraft.details} onChange={(event) => setReminderDraft((draft) => ({ ...draft, details: event.target.value }))} className="w-full resize-y rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <textarea id="workhub-reminder-details" rows={3} maxLength={1000} value={reminderDraft.details} onChange={(event) => setReminderDraft((draft) => ({ ...draft, details: event.target.value }))} className={`${formControlClassName} resize-y`} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="workhub-reminder-due" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.reminder_time")}</label>
-              <input id="workhub-reminder-due" required type="datetime-local" value={reminderDraft.dueAt} onChange={(event) => setReminderDraft((draft) => ({ ...draft, dueAt: event.target.value }))} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground" />
+              <input id="workhub-reminder-due" required type="datetime-local" value={reminderDraft.dueAt} onChange={(event) => setReminderDraft((draft) => ({ ...draft, dueAt: event.target.value }))} className={formControlClassName} />
             </div>
             <div className="flex flex-wrap justify-end gap-2 border-t border-theme pt-3">
               <button type="button" onClick={() => setReminderDialogOpen(false)} className={secondaryButtonClass}>{t("workhub.button.cancel")}</button>
@@ -882,7 +893,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
           <form onSubmit={submitNotebook} className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="workhub-notebook-title" className="text-dynamic-xs font-semibold text-muted">{t("workhub.field.notebook_title")}</label>
-              <input id="workhub-notebook-title" required autoFocus maxLength={120} value={notebookTitleDraft} onChange={(event) => setNotebookTitleDraft(event.target.value)} className="w-full rounded-xl border border-theme bg-surface-elevated px-3.5 py-2.5 text-dynamic-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <input id="workhub-notebook-title" required autoFocus maxLength={120} value={notebookTitleDraft} onChange={(event) => setNotebookTitleDraft(event.target.value)} className={formControlClassName} />
             </div>
             <div className="flex flex-wrap justify-end gap-2 border-t border-theme pt-3">
               <button type="button" onClick={() => setNotebookDialogOpen(false)} className={secondaryButtonClass}>{t("workhub.button.cancel")}</button>

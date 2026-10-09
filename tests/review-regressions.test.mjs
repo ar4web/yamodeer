@@ -140,6 +140,21 @@ test("invoice line and total calculations preserve halala precision", () => {
   });
 });
 
+test("invoice payment terms calculate due dates and expired or unreceived POs are ineligible", () => {
+  assert.equal(invoiceWorkspace.calculateInvoiceDueDate("2026-10-07", 30), "2026-11-06");
+  assert.equal(invoiceWorkspace.calculateInvoiceDueDate("2026-12-31", 0), "2026-12-31");
+  assert.throws(() => invoiceWorkspace.calculateInvoiceDueDate("2026-02-30", 30), RangeError);
+  assert.throws(() => invoiceWorkspace.calculateInvoiceDueDate("2026-10-07", -1), RangeError);
+
+  const receivedOrder = invoiceWorkspace.CLIENT_PURCHASE_ORDERS.find((order) => order.status === "RECEIVED");
+  const awaitingOrder = invoiceWorkspace.CLIENT_PURCHASE_ORDERS.find((order) => order.status === "AWAITING_RECEIPT");
+  assert.ok(receivedOrder);
+  assert.ok(awaitingOrder);
+  assert.equal(invoiceWorkspace.isPurchaseOrderInvoiceEligible(receivedOrder, receivedOrder.validUntilIso), true);
+  assert.equal(invoiceWorkspace.isPurchaseOrderInvoiceEligible(receivedOrder, "2027-01-01"), false);
+  assert.equal(invoiceWorkspace.isPurchaseOrderInvoiceEligible(awaitingOrder, "2026-10-07"), false);
+});
+
 test("invoice drafts reject incomplete bilingual lines and invalid amounts", () => {
   assert.throws(
     () => invoiceWorkspace.calculateInvoiceLines([{
@@ -255,6 +270,31 @@ test("sidebar drag widths persist continuously and clamp within the saved range"
   assert.equal(sidebarSizing.restoreSidebarWidth(336), 336);
   assert.equal(sidebarSizing.restoreSidebarWidth(Number.NaN), 176);
   assert.equal(sidebarSizing.snapSidebarWidth(336), 336);
+  assert.equal(sidebarSizing.isSidebarCompactWidth(80), true);
+  assert.equal(sidebarSizing.isSidebarCompactWidth(159), true);
+  assert.equal(sidebarSizing.isSidebarCompactWidth(175), true);
+  assert.equal(sidebarSizing.isSidebarCompactWidth(176), false);
+});
+
+test("primary app navigation stays in a responsive sidebar on every viewport", async () => {
+  const source = await readFile(new URL("../src/components/MasterShell.tsx", import.meta.url), "utf8");
+  const asideClass = source.match(/id="primary-navigation"[\s\S]*?className="([^"]+)"/)?.[1];
+  assert.ok(asideClass);
+  assert.match(asideClass, /sticky top-0 z-10 flex h-screen w-20 shrink-0 flex-col/);
+  assert.match(asideClass, /lg:w-\[var\(--sidebar-width\)\]/);
+  assert.match(source, /matchMedia\("\(max-width: 1023px\)"\)/);
+  assert.match(source, /const isSidebarCompact = isMobileViewport \|\| isSidebarCompactWidth\(sidebarWidth\)/);
+  assert.match(source, /title=\{isSidebarCompact \? t\(item\.labelKey\) : undefined\}/);
+  assert.match(source, /isMobileViewport \? \([\s\S]*?className="max-w-full min-w-0 break-words text-center text-dynamic-xs leading-tight"/);
+  assert.match(source, /aria-label=\{t\("shell\.navigation"\)\}/);
+});
+
+test("mobile navigation no longer switches to a bottom bar or modal drawer", async () => {
+  const source = await readFile(new URL("../src/components/MasterShell.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /mobileSidebarOpen|mobileSidebarDialogRef|data-mobile-bottom-nav/);
+  assert.doesNotMatch(source, /fixed inset-x-0 bottom-0/);
+  assert.doesNotMatch(source, /shell\.bottom_nav_more/);
+  assert.match(source, /onClick=\{\(\) => setActiveRoute\(item\.key\)\}/);
 });
 
 test("DOCX generation works on the documented Node 20 development runtime", async () => {

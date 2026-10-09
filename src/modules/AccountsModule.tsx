@@ -11,7 +11,7 @@ import {
 import { useLanguage, BilingualText } from "@/context/LanguageContext";
 import { useOperations } from "@/context/OperationsContext";
 import { useCurrentRole } from "@/context/RBACGeofenceContext";
-import { DataTableFrame, iconButtonClass, MetricCard, PageHeader, primaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
+import { DataTableFrame, formControlClassName, iconButtonClass, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, SegmentedTabs, successButtonClass, surfaceClassName, TabPanel, useModalFocus } from "@/components/DesignSystem";
 
 export type AccountClass =
   | "ASSET"
@@ -173,6 +173,7 @@ export const AccountsModule: React.FC = () => {
   const [journal, setJournal] =
     useState<JournalVoucherEntry[]>(INITIAL_JOURNAL);
   const [jvModalOpen, setJvModalOpen] = useState(false);
+  const journalVoucherDialogRef = useModalFocus(jvModalOpen, () => setJvModalOpen(false));
 
   const [jvForm, setJvForm] = useState({
     narrationEn: "Quarterly Article 84/85 EOSB Actuarial Provision Top-Up",
@@ -256,6 +257,8 @@ export const AccountsModule: React.FC = () => {
         )}
       />
 
+      <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={t("acc.kpi.assets")} value={formatCurrencySAR(totals.assets)} icon={<Landmark className="h-5 w-5" />} tone="primary" />
         <MetricCard label={t("acc.kpi.liabilities")} value={formatCurrencySAR(totals.liabilities)} icon={<Scale className="h-5 w-5" />} tone="warning" />
@@ -296,7 +299,7 @@ export const AccountsModule: React.FC = () => {
                     key={acc.code}
                     className="transition-colors hover:bg-primary-soft/30"
                   >
-                    <td className="py-3.5 ps-5 pe-3 font-mono font-bold text-dynamic-sm text-primary">
+                    <td className="py-3.5 ps-5 pe-3 font-mono font-bold text-dynamic-sm text-primary-text">
                       {acc.code}
                     </td>
                     <td className="py-3.5 px-3">
@@ -308,7 +311,7 @@ export const AccountsModule: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3.5 px-3">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-primary-soft text-primary font-bold text-dynamic-xs">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-primary-soft text-primary-text font-bold text-dynamic-xs">
                         {t(`acc.type.${acc.type}`)}
                       </span>
                     </td>
@@ -333,11 +336,11 @@ export const AccountsModule: React.FC = () => {
           {journal.map((jv) => (
             <div
               key={jv.id}
-              className="bg-surface border border-theme rounded-2xl p-4 shadow-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+              className={`${surfaceClassName} p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4`}
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded bg-primary-soft text-primary font-mono font-bold text-dynamic-xs">
+                  <span className="px-2.5 py-0.5 rounded bg-primary-soft text-primary-text font-mono font-bold text-dynamic-xs">
                     {jv.id}
                   </span>
                   <span className="text-dynamic-xs font-mono text-muted">
@@ -352,10 +355,10 @@ export const AccountsModule: React.FC = () => {
                 </div>
               </div>
               <div className="text-end font-mono">
-                <div className="text-dynamic-lg font-extrabold text-primary">
+                <div className="text-dynamic-lg font-extrabold text-primary-text">
                   {formatCurrencySAR(jv.amountSar)}
                 </div>
-                <span className="text-dynamic-xs text-success font-bold">
+                <span className="text-dynamic-xs text-success-text font-bold">
                   {t("acc.journal.balanced")}
                 </span>
               </div>
@@ -367,9 +370,9 @@ export const AccountsModule: React.FC = () => {
       {/* TAB 3: ZATCA 15% VAT RETURN & GOSI/EOSB RECONCILIATION */}
       <TabPanel hidden={activeTab !== "vat_return"} id="accounting-vat_return-panel" labelledBy="accounting-vat_return-tab">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+          <div className={`${surfaceClassName} p-4 space-y-4`}>
             <div className="flex items-center gap-2 border-b border-theme pb-3">
-              <Scale className="w-5 h-5 text-primary" />
+              <Scale className="w-5 h-5 text-primary-text" />
               <h2 className="text-dynamic-base font-bold text-foreground">
                 {t("acc.vat.title")}
               </h2>
@@ -377,30 +380,30 @@ export const AccountsModule: React.FC = () => {
             <div className="space-y-2.5 font-mono text-dynamic-sm">
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.output")}</span>
-                <strong className="text-warning">
+                <strong className="text-warning-text">
                   {formatCurrencySAR(412500)}
                 </strong>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.input")}</span>
-                <strong className="text-success">
+                <strong className="text-success-text">
                   - {formatCurrencySAR(174000)}
                 </strong>
               </div>
               <div className="flex justify-between p-4 rounded-xl bg-primary-soft border border-primary">
-                <span className="font-bold text-primary">
+                <span className="font-bold text-primary-text">
                   {t("acc.vat.net")}
                 </span>
-                <strong className="text-primary">
+                <strong className="text-primary-text">
                   {formatCurrencySAR(238500)}
                 </strong>
               </div>
             </div>
           </div>
 
-          <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+          <div className={`${surfaceClassName} p-4 space-y-4`}>
             <div className="flex items-center gap-2 border-b border-theme pb-3">
-              <Landmark className="w-5 h-5 text-accent" />
+              <Landmark className="w-5 h-5 text-accent-text" />
               <h2 className="text-dynamic-base font-bold text-foreground">
                 {t("acc.vat.statutory")}
               </h2>
@@ -451,10 +454,10 @@ export const AccountsModule: React.FC = () => {
                     <td className="py-3 px-3 text-dynamic-xs text-foreground">{localize(item.counterparty)}</td>
                     <td className="py-3 px-3 font-mono text-dynamic-xs text-muted">{item.dueDate}</td>
                     <td className="py-3 px-3 text-end font-mono text-dynamic-xs font-semibold text-foreground">{formatCurrencySAR(item.amountSar)}</td>
-                    <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${item.status === "PENDING" ? "bg-warning-soft text-warning" : "bg-success-soft text-success"}`}>{t(`acc.payables.status.${item.status}`)}</span></td>
+                    <td className="py-3 px-3"><span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${item.status === "PENDING" ? "bg-warning-soft text-warning-text" : "bg-success-soft text-success-text"}`}>{t(`acc.payables.status.${item.status}`)}</span></td>
                     <td className="py-3 ps-3 pe-4 text-end">
                       {item.status === "PENDING" && canSettlePayments ? (
-                        <button type="button" onClick={() => updateFinancialWorkflowStatus(item.id, "PAID")} className="rounded-lg bg-success px-2.5 py-1 text-dynamic-xs font-semibold text-on-primary">{t("acc.payables.mark_paid")}</button>
+                        <button type="button" onClick={() => updateFinancialWorkflowStatus(item.id, "PAID")} className={successButtonClass}>{t("acc.payables.mark_paid")}</button>
                       ) : <span className="text-dynamic-xs text-muted">—</span>}
                     </td>
                   </tr>
@@ -468,9 +471,9 @@ export const AccountsModule: React.FC = () => {
       {/* Post Journal Voucher Modal */}
       {jvModalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-xl w-full p-4 shadow-shell space-y-4">
+          <div ref={journalVoucherDialogRef} role="dialog" aria-modal="true" aria-labelledby="journal-voucher-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-xl w-full p-4 shadow-shell space-y-4">
             <div className="flex items-center justify-between border-b border-theme pb-3">
-              <h2 className="text-dynamic-lg font-extrabold text-foreground">
+              <h2 id="journal-voucher-title" className="text-dynamic-lg font-extrabold text-foreground">
                 {t("acc.jv.title")}
               </h2>
               <button
@@ -495,7 +498,7 @@ export const AccountsModule: React.FC = () => {
                   onChange={(e) =>
                     setJvForm((p) => ({ ...p, narrationEn: e.target.value }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -510,7 +513,7 @@ export const AccountsModule: React.FC = () => {
                   onChange={(e) =>
                     setJvForm((p) => ({ ...p, narrationAr: e.target.value }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -527,7 +530,7 @@ export const AccountsModule: React.FC = () => {
                         debitAccountCode: e.target.value
                       }))
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-xs"
+                    className={`${formControlClassName} font-mono text-dynamic-xs`}
                   >
                     {coa.map((a) => (
                       <option key={a.code} value={a.code}>
@@ -549,7 +552,7 @@ export const AccountsModule: React.FC = () => {
                         creditAccountCode: e.target.value
                       }))
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-xs"
+                    className={`${formControlClassName} font-mono text-dynamic-xs`}
                   >
                     {coa.map((a) => (
                       <option key={a.code} value={a.code}>
@@ -573,7 +576,7 @@ export const AccountsModule: React.FC = () => {
                       amountSar: Number(e.target.value) || 0
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                  className={`${formControlClassName} font-mono`}
                 />
               </div>
             </div>

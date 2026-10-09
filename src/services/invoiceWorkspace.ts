@@ -89,6 +89,22 @@ export const CLIENT_DIRECTORY: ClientProfile[] = [
   }
 ];
 
+export const isPurchaseOrderInvoiceEligible = (purchaseOrder: ClientPurchaseOrder, invoiceDate: string): boolean =>
+  purchaseOrder.status === "RECEIVED" &&
+  (!invoiceDate || !purchaseOrder.validUntilIso || purchaseOrder.validUntilIso >= invoiceDate);
+
+export const calculateInvoiceDueDate = (invoiceDate: string, paymentTermsDays: number): string => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate) || !Number.isInteger(paymentTermsDays) || paymentTermsDays < 0) {
+    throw new RangeError("A valid invoice date and non-negative integer payment term are required");
+  }
+  const dueDate = new Date(`${invoiceDate}T00:00:00.000Z`);
+  if (Number.isNaN(dueDate.getTime()) || dueDate.toISOString().slice(0, 10) !== invoiceDate) {
+    throw new RangeError("Invoice date must be a real calendar date");
+  }
+  dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+  return dueDate.toISOString().slice(0, 10);
+};
+
 export const CLIENT_PURCHASE_ORDERS: ClientPurchaseOrder[] = [
   {
     id: "PO-2026-0148",

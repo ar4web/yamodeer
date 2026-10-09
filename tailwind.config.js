@@ -36,31 +36,42 @@ export default {
         "shell-nav-muted": "var(--color-shell-nav-muted)",
         "shell-nav-active": "var(--color-shell-nav-active)",
         primary: "var(--color-primary)",
+        "primary-text": "var(--color-primary-text)",
         "primary-hover": "var(--color-primary-hover)",
         "primary-soft": "var(--color-primary-soft)",
         "on-primary": "var(--color-on-primary)",
         accent: "var(--color-accent)",
+        "accent-text": "var(--color-accent-text)",
         "accent-soft": "var(--color-accent-soft)",
         theme: "var(--color-border)",
         success: "var(--color-success)",
+        "success-text": "var(--color-success-text)",
         "success-soft": "var(--color-success-soft)",
+        "on-success": "var(--color-on-success)",
         warning: "var(--color-warning)",
+        "warning-text": "var(--color-warning-text)",
         "warning-soft": "var(--color-warning-soft)",
+        "on-warning": "var(--color-on-warning)",
         danger: "var(--color-danger)",
-        "danger-soft": "var(--color-danger-soft)"
+        "danger-text": "var(--color-danger-text)",
+        "danger-soft": "var(--color-danger-soft)",
+        "on-danger": "var(--color-on-danger)"
       },
       borderColor: {
         DEFAULT: "var(--color-border)",
         theme: "var(--color-border)",
-        primary: "var(--color-primary)",
-        accent: "var(--color-accent)",
-        success: "var(--color-success)",
-        warning: "var(--color-warning)",
-        danger: "var(--color-danger)"
+        primary: "var(--color-primary-text)",
+        accent: "var(--color-accent-text)",
+        success: "var(--color-success-text)",
+        warning: "var(--color-warning-text)",
+        danger: "var(--color-danger-text)"
       },
       ringColor: {
-        primary: "var(--color-primary)",
-        accent: "var(--color-accent)"
+        primary: "var(--color-primary-text)",
+        accent: "var(--color-accent-text)",
+        success: "var(--color-success-text)",
+        warning: "var(--color-warning-text)",
+        danger: "var(--color-danger-text)"
       },
       fontFamily: {
         sans: ["var(--font-family-active)", "system-ui", "-apple-system", "sans-serif"],
@@ -81,14 +92,14 @@ export default {
       },
       borderRadius: {
         none: "0px",
-        sm: "0px",
-        DEFAULT: "0px",
-        md: "0px",
-        lg: "0px",
-        xl: "0px",
-        "2xl": "0px",
-        "3xl": "0px",
-        full: "0px"
+        sm: "var(--radius-sm, 2px)",
+        DEFAULT: "var(--radius-default, 3px)",
+        md: "var(--radius-md, 4px)",
+        lg: "var(--radius-lg, 6px)",
+        xl: "var(--radius-xl, 8px)",
+        "2xl": "var(--radius-2xl, 10px)",
+        "3xl": "var(--radius-3xl, 12px)",
+        full: "var(--radius-full, 9999px)"
       }
     }
   },

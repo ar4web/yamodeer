@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -6,7 +6,6 @@ import {
   Receipt,
   Landmark,
   FolderOpen,
-  FilePenLine,
   Scale,
   Sliders,
   ShieldAlert,
@@ -20,18 +19,19 @@ import {
   XCircle,
   Lock,
   Navigation,
-  Menu,
   X,
   Send,
   ListTodo,
   Mail,
   MessageCircle,
   Sparkles,
-  FileText
+  FileText,
+  GitBranch,
+  UserRound
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTheme, ThemeMode } from "@/context/ThemeContext";
-import { iconButtonBaseClass, iconButtonClass, primaryButtonClass, secondaryButtonClass } from "@/components/DesignSystem";
+import { formControlClassName, iconButtonBaseClass, iconButtonClass, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
 import {
   useCurrentRole,
   useRBACGeofence,
@@ -50,9 +50,11 @@ import { DashboardModule } from "@/modules/DashboardModule";
 import { EmployeeModule } from "@/modules/EmployeeModule";
 import { VendorModule } from "@/modules/VendorModule";
 import { ExpenseModule } from "@/modules/ExpenseModule";
+import { WorkflowEngineModule } from "@/modules/WorkflowEngineModule";
+import { UserProfileModule } from "@/modules/UserProfileModule";
+import { NotificationCenterButton } from "@/components/NotificationCenterButton";
 import { AccountsModule } from "@/modules/AccountsModule";
 import { FilesManagerModule, INITIAL_VAULT_FILES, VaultFileItem } from "@/modules/FilesManagerModule";
-import { DocMakerModule, DocumentTemplateId } from "@/modules/DocMakerModule";
 import { ComplianceZatcaModule } from "@/modules/ComplianceZatcaModule";
 import { MasterSettingsModule } from "@/modules/MasterSettingsModule";
 import { WorkSuiteModule } from "@/modules/WorkSuiteModule";
@@ -64,10 +66,13 @@ import {
   DEFAULT_SIDEBAR_WIDTH,
   SIDEBAR_SNAP_WIDTHS,
   clampSidebarWidth,
+  isSidebarCompactWidth,
   restoreSidebarWidth,
   snapSidebarWidth
 } from "@/services/sidebarSizing";
 import type { SidebarSnapWidth } from "@/services/sidebarSizing";
+import type { RosterImportBundle, RosterImportSummary } from "@/services/rosterImport";
+import { PartialRosterDirectoryModule, PartialRosterImportRequiredModule } from "@/modules/PartialRosterDirectoryModule";
 
 const ROLE_OPTIONS: CorporateRole[] = [
   "SUPER_ADMIN",
@@ -114,7 +119,7 @@ export const RBACRouteGuard: React.FC<{
   if (!isRouteModuleEnabled(route)) {
     return (
       <div className="bg-surface border-2 border-warning rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 text-center space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-warning-soft text-warning flex items-center justify-center mx-auto">
+        <div className="w-14 h-14 rounded-2xl bg-warning-soft text-warning-text flex items-center justify-center mx-auto">
           <Lock className="w-7 h-7" />
         </div>
         <h2 className="text-dynamic-xl font-extrabold text-foreground">
@@ -165,7 +170,7 @@ export const RBACRouteGuard: React.FC<{
     return (
       <div className="bg-surface border-2 border-danger rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 space-y-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-danger-soft text-danger flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-danger-soft text-danger-text flex items-center justify-center shrink-0">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
@@ -183,7 +188,7 @@ export const RBACRouteGuard: React.FC<{
             <div className="text-dynamic-xs text-muted">
               {t("rbac.unauthorized.current_role")}
             </div>
-            <div className="text-dynamic-sm font-bold text-danger pt-0.5">
+            <div className="text-dynamic-sm font-bold text-danger-text pt-0.5">
               {t(`role.${currentRole}`)}
             </div>
           </div>
@@ -248,7 +253,27 @@ export const MasterShell: React.FC = () => {
   } = useRBACGeofence();
 
   const [activeRoute, setActiveRoute] = useState<ModuleRouteKey>("dashboard");
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [dashboardDemoMode, setDashboardDemoMode] = useState(import.meta.env.DEV);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"theme_lab" | "app_store" | "dashboard_widgets" | "integrations" | "rbac_matrix">("theme_lab");
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 1023px)").matches
+  );
+  const geofenceDialogRef = useModalFocus(geofenceModalOpen, () => setGeofenceModalOpen(false));
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mobileQuery = window.matchMedia("(max-width: 1023px)");
+    const updateMobileViewport = () => setIsMobileViewport(mobileQuery.matches);
+    mobileQuery.addEventListener("change", updateMobileViewport);
+    return () => mobileQuery.removeEventListener("change", updateMobileViewport);
+  }, []);
+
+  useEffect(() => {
+    if (activeRoute !== "settings" && settingsInitialTab !== "theme_lab") {
+      setSettingsInitialTab("theme_lab");
+    }
+  }, [activeRoute, settingsInitialTab]);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(getInitialSidebarWidth);
   const [sidebarDragging, setSidebarDragging] = useState(false);
@@ -259,13 +284,38 @@ export const MasterShell: React.FC = () => {
     currentWidth: number;
     direction: "ltr" | "rtl";
   } | null>(null);
-  const isSidebarCompact =
-    snapSidebarWidth(sidebarWidth) === SIDEBAR_SNAP_WIDTHS[0] && !mobileSidebarOpen;
+  const isSidebarCompact = isMobileViewport || isSidebarCompactWidth(sidebarWidth);
 
   // Mutable Master State for Employees, Vendors & ZATCA Invoices across child blueprints
   const [employees, setEmployees] = useState<EmployeeRecordBlueprint[]>(
     EMPLOYEE_GRID_BLUEPRINT
   );
+  // Manual imports hold raw rows in React memory only. The dev preview may also
+  // provide aggregate metrics without sending any employee-level fields to the browser.
+  const [rosterData, setRosterData] = useState<RosterImportBundle | null>(null);
+  const [devRosterSummary, setDevRosterSummary] = useState<RosterImportSummary | null>(null);
+  const rosterSummary = rosterData?.summary ?? devRosterSummary;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !hasPermission("route:employees")) return;
+    let cancelled = false;
+    fetch("/__dev/roster-summary", { cache: "no-store" })
+      .then((response) => response.status === 204 ? null : response.ok ? response.json() : null)
+      .then((payload) => {
+        if (cancelled || !payload || typeof payload !== "object") return;
+        const candidate = payload as Partial<RosterImportSummary>;
+        if (
+          typeof candidate.importedAt !== "string" ||
+          typeof candidate.sourceRecordCount !== "number" ||
+          !Array.isArray(candidate.companies) ||
+          !Array.isArray(candidate.departments)
+        ) return;
+        setDevRosterSummary((existing) => existing ?? candidate as RosterImportSummary);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [hasPermission]);
+
   const [vendors, setVendors] = useState(VENDOR_CONTRACTOR_BLUEPRINT);
   const [invoices, setInvoices] = useState<ZatcaPhase2InvoiceBlueprint[]>(
     ZATCA_INVOICE_BLUEPRINTS
@@ -275,7 +325,6 @@ export const MasterShell: React.FC = () => {
     string | undefined
   >(undefined);
   const [vaultFiles, setVaultFiles] = useState<VaultFileItem[]>(INITIAL_VAULT_FILES);
-  const [selectedDocTemplateId, setSelectedDocTemplateId] = useState<string | undefined>(undefined);
 
   // Geofence Exception Workflow Local State
   const [exceptionReasonInput, setExceptionReasonInput] = useState("");
@@ -340,6 +389,17 @@ export const MasterShell: React.FC = () => {
       ]
     },
     {
+      labelKey: "nav.group.operations",
+      items: [
+        {
+          key: "workflows" as ModuleRouteKey,
+          labelKey: "nav.workflows",
+          icon: GitBranch,
+          enabled: true
+        }
+      ]
+    },
+    {
       labelKey: "nav.group.finance",
       items: [
         {
@@ -371,12 +431,6 @@ export const MasterShell: React.FC = () => {
           icon: FolderOpen,
           enabled: moduleToggles.filesManagerEnabled
         },
-        {
-          key: "doc_maker" as ModuleRouteKey,
-          labelKey: "nav.doc_maker",
-          icon: FilePenLine,
-          enabled: moduleToggles.docMakerEnabled
-        }
       ]
     },
     {
@@ -509,7 +563,7 @@ export const MasterShell: React.FC = () => {
   };
 
   const sidebarWidthDescription =
-    snapSidebarWidth(sidebarWidth) === SIDEBAR_SNAP_WIDTHS[0]
+    isSidebarCompactWidth(sidebarWidth)
       ? t("shell.sidebar_width_compact")
       : snapSidebarWidth(sidebarWidth) === SIDEBAR_SNAP_WIDTHS[2]
         ? t("shell.sidebar_width_wide")
@@ -517,48 +571,34 @@ export const MasterShell: React.FC = () => {
   const isGeoVerified = verificationStatus === "VERIFIED_INSIDE_ZONE";
 
   return (
-    <div className="flex min-h-screen bg-canvas text-foreground">
-      {mobileSidebarOpen && (
-        <button
-          type="button"
-          aria-label={t("shell.close_navigation")}
-          onClick={() => setMobileSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm lg:hidden"
-        />
-      )}
-
+    <div className="flex min-h-screen overflow-x-clip bg-canvas text-foreground">
+      <a href="#workspace-main" className="skip-link">{t("accessibility.skip_main")}</a>
       {/* Primary workspace navigation */}
       <aside
+        id="primary-navigation"
+        aria-label={t("shell.navigation")}
         style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-        className={`${
-          mobileSidebarOpen
-            ? "fixed inset-y-0 start-0 z-50 flex w-72 shadow-shell"
-            : "hidden"
-        } relative flex-col border-e border-shell-nav-border bg-shell-nav text-shell-nav-foreground lg:sticky lg:top-0 lg:z-10 lg:flex lg:h-screen lg:w-[var(--sidebar-width)] lg:shrink-0 lg:shadow-none`}
+        className="sticky top-0 z-10 flex h-screen w-20 shrink-0 flex-col border-e border-shell-nav-border bg-shell-nav text-shell-nav-foreground lg:w-[var(--sidebar-width)]"
       >
-        <div className={`flex items-center gap-3 py-5 ${isSidebarCompact ? "justify-center px-3" : "px-5"}`}>
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-shell-nav-border bg-shell-nav-elevated text-primary">
-            <Sparkles className="h-5 w-5" />
+        <div className={`mx-2 flex min-h-16 items-center gap-3 border-b border-shell-nav-border py-3 ${isSidebarCompact ? "justify-center px-1" : "px-3"}`}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-shell-nav-border bg-shell-nav-elevated text-shell-nav-foreground">
+            <Sparkles aria-hidden="true" className="h-4 w-4" />
           </div>
           <div className={`min-w-0 flex-1 ${isSidebarCompact ? "hidden" : ""}`}>
-            <div className="truncate text-dynamic-lg font-bold tracking-tight text-shell-nav-foreground">
+            <div className="truncate text-dynamic-sm font-semibold leading-tight tracking-tight text-shell-nav-foreground">
               {t("app.title")}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(false)}
-            title={t("shell.close_navigation")}
-            aria-label={t("shell.close_navigation")}
-            className={`${iconButtonBaseClass} text-shell-nav-muted hover:bg-shell-nav-active hover:text-shell-nav-foreground lg:hidden`}
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-label={t("shell.navigation")}>
-          {sidebarGroups.map((group) => (
-            <div key={group.labelKey}>
+        <nav className={`min-h-0 flex-1 space-y-1.5 overflow-y-auto ${isMobileViewport ? "px-1.5" : "px-3"} py-3`} aria-label={t("shell.navigation")}>
+          {sidebarGroups.map((group, groupIndex) => (
+            <div
+              key={group.labelKey}
+              role="group"
+              aria-label={t(group.labelKey)}
+              className={`space-y-1 ${groupIndex < sidebarGroups.length - 1 ? "border-b border-shell-nav-border pb-2" : ""}`}
+            >
               <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const IconComp = item.icon;
@@ -570,33 +610,35 @@ export const MasterShell: React.FC = () => {
                       aria-label={t(item.labelKey)}
                       aria-current={isActive ? "page" : undefined}
                       title={isSidebarCompact ? t(item.labelKey) : undefined}
-                      onClick={() => {
-                        setActiveRoute(item.key);
-                        setMobileSidebarOpen(false);
-                      }}
-                      className={`group relative flex w-full items-center ${isSidebarCompact ? "justify-center px-2" : "gap-3 px-3 text-start"} rounded-xl py-2 transition-colors ${
+                      onClick={() => setActiveRoute(item.key)}
+                      className={`group relative flex min-w-0 w-full items-center ${
+                        isMobileViewport
+                          ? "min-h-[3.75rem] flex-col justify-center gap-1 px-1.5 py-1.5"
+                          : `${isSidebarCompact ? "justify-center px-2" : "gap-2.5 px-3 text-start"} py-1.5`
+                      } rounded-lg border transition-colors duration-150 ${
                         isActive
-                          ? "bg-shell-nav-active font-semibold text-shell-nav-foreground"
-                          : "text-shell-nav-muted hover:bg-shell-nav-active hover:text-shell-nav-foreground"
+                          ? "border-shell-nav-border bg-shell-nav-active font-semibold text-shell-nav-foreground"
+                          : "border-transparent text-shell-nav-muted hover:bg-shell-nav-active hover:text-shell-nav-foreground"
                       }`}
                     >
-                      {isActive && (
-                        <span className="absolute inset-y-2 start-0 w-0.5 rounded-e-full bg-accent" />
-                      )}
                       <span
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center transition-colors ${
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${
                           isActive
-                            ? "bg-shell-nav-elevated text-primary"
-                            : "text-shell-nav-muted group-hover:bg-shell-nav-elevated group-hover:text-shell-nav-foreground"
+                            ? "text-shell-nav-foreground"
+                            : "text-shell-nav-muted group-hover:text-shell-nav-foreground"
                         }`}
                       >
-                        <IconComp className="h-5 w-5" />
+                        <IconComp aria-hidden="true" className="h-4 w-4" />
                       </span>
-                      {!isSidebarCompact && (
+                      {isMobileViewport ? (
+                        <span className="max-w-full min-w-0 break-words text-center text-dynamic-xs leading-tight">
+                          {t(item.labelKey)}
+                        </span>
+                      ) : !isSidebarCompact ? (
                         <span className="min-w-0 flex-1 truncate text-dynamic-sm">
                           {t(item.labelKey)}
                         </span>
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}
@@ -605,17 +647,17 @@ export const MasterShell: React.FC = () => {
           ))}
         </nav>
 
-        <div className={`space-y-3 ${isSidebarCompact ? "p-2" : "p-4"}`}>
+        <div className={`space-y-2.5 border-t border-shell-nav-border ${isSidebarCompact ? "p-2.5 pt-3" : "p-3.5 pt-3"}`}>
           <button
             type="button"
             onClick={() => setGeofenceModalOpen(true)}
             title={t(isClockedIn ? "shell.clocked_in_badge" : "shell.clock_in_btn")}
             aria-label={t(isClockedIn ? "shell.clocked_in_badge" : "shell.clock_in_btn")}
-            className={`inline-flex h-10 w-full items-center justify-center gap-2 border border-shell-nav-border bg-shell-nav-elevated text-dynamic-sm font-semibold text-shell-nav-foreground transition-colors hover:bg-shell-nav-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-shell-nav-border bg-shell-nav-elevated text-dynamic-sm font-semibold text-shell-nav-foreground transition-colors hover:bg-shell-nav-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               isSidebarCompact ? "px-0" : "px-3"
             }`}
           >
-            <Navigation className="h-4 w-4 text-primary" />
+            <Navigation className="h-4 w-4 text-shell-nav-foreground" />
             {!isSidebarCompact && (
               <span>
                 {isClockedIn
@@ -637,7 +679,7 @@ export const MasterShell: React.FC = () => {
               title={t("shell.switch_role")}
               value={currentRole}
               onChange={(e) => setCurrentRole(e.target.value as CorporateRole)}
-              className={`h-10 w-full border border-shell-nav-border bg-shell-nav-elevated py-2 text-dynamic-xs font-semibold text-shell-nav-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+              className={`min-h-11 w-full rounded-lg border border-shell-nav-border bg-shell-nav-elevated py-2 text-dynamic-xs font-semibold text-shell-nav-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
                 isSidebarCompact ? "px-1 text-center" : "px-3"
               }`}
             >
@@ -680,41 +722,32 @@ export const MasterShell: React.FC = () => {
 
       {/* Active workspace */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 bg-surface px-4 py-3 sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(true)}
-            title={t("shell.navigation")}
-            aria-label={t("shell.navigation")}
-            aria-expanded={mobileSidebarOpen}
-            className={`${iconButtonClass} lg:hidden`}
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-
-          <div className="relative min-w-0 max-w-xl flex-1 sm:ms-3">
-            <Search className="absolute top-1/2 start-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
+        <header className="sticky top-0 z-30 flex min-h-16 flex-col items-stretch gap-2 border-b border-theme bg-surface px-3 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
+          <div className="relative min-w-0 w-full max-w-none flex-1 sm:ms-3 sm:max-w-xl lg:w-1/4 lg:min-w-[12rem] lg:flex-none">
+            <Search aria-hidden="true" className="absolute top-1/2 start-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
               type="search"
               value={globalSearchQuery}
               onChange={(e) => setGlobalSearchQuery(e.target.value)}
               placeholder={t("shell.search_placeholder")}
               aria-label={t("shell.search_placeholder")}
-              className="h-10 w-full bg-surface-elevated py-2 ps-10 pe-4 text-dynamic-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+              className={`${formControlClassName} h-10 ps-10 pe-4`}
             />
           </div>
 
-          <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="shell-topbar-controls ms-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:gap-2">
             <button
               type="button"
               onClick={() => setGeofenceModalOpen(true)}
               title={t(isGeoVerified ? "shell.location_verified" : "shell.location_review")}
               aria-label={t(isGeoVerified ? "shell.location_verified" : "shell.location_review")}
-              className={`${iconButtonBaseClass} ${isGeoVerified ? "bg-success-soft text-success hover:bg-success-soft" : "bg-warning-soft text-warning hover:bg-warning-soft"}`}
+              className={`${iconButtonBaseClass} ${isGeoVerified ? "bg-success-soft text-success-text hover:bg-success-soft" : "bg-warning-soft text-warning-text hover:bg-warning-soft"}`}
             >
               <span className={`h-1.5 w-1.5 shrink-0 ${isGeoVerified ? "bg-success" : "bg-warning"}`} />
               <MapPin className="h-4 w-4" />
             </button>
+
+            <NotificationCenterButton onNavigate={setActiveRoute} />
 
             <button
               type="button"
@@ -741,11 +774,27 @@ export const MasterShell: React.FC = () => {
             >
               <Globe className="h-4 w-4" />
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveRoute("profile");
+                window.requestAnimationFrame(() => document.getElementById("workspace-main")?.focus());
+              }}
+              title={t("nav.profile")}
+              aria-label={t("nav.profile")}
+              aria-current={activeRoute === "profile" ? "page" : undefined}
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${activeRoute === "profile" ? "border-primary bg-primary-soft text-primary-text" : "border-theme bg-surface-elevated text-muted hover:border-primary/50 hover:bg-primary-soft hover:text-primary-text"}`}
+            >
+              <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+                <UserRound className="h-4 w-4" />
+              </span>
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-          <div className="w-full min-w-0 space-y-6">
+        <main id="workspace-main" data-modal-focus-fallback tabIndex={-1} aria-label={t("accessibility.main_content")} className="flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div key={activeRoute} className="w-full min-w-0 space-y-6 app-page-enter">
             <RBACRouteGuard
               route={activeRoute}
               onReturnSafeRoute={() => setActiveRoute("dashboard")}
@@ -753,14 +802,31 @@ export const MasterShell: React.FC = () => {
               {activeRoute === "dashboard" && (
                 <DashboardModule
                   employees={employees}
-                  onNavigateModule={(r) => setActiveRoute(r)}
+                  rosterSummary={rosterSummary ?? null}
+                  rosterRecordsLoaded={Boolean(rosterData)}
+                  demoMode={dashboardDemoMode}
+                  onToggleDemoMode={() => setDashboardDemoMode((enabled) => !enabled)}
+                  onNavigateModule={(r) => {
+                    if (r === "settings") setSettingsInitialTab("dashboard_widgets");
+                    setActiveRoute(r);
+                  }}
                 />
               )}
               {activeRoute === "work_hub" && <WorkSuiteModule globalSearchQuery={globalSearchQuery} />}
               {activeRoute === "workspace" && <WorkSuiteModule globalSearchQuery={globalSearchQuery} initialArea="WORKSPACE" />}
               {activeRoute === "mail" && <MailModule globalSearchQuery={globalSearchQuery} />}
               {activeRoute === "chat" && <ChatModule globalSearchQuery={globalSearchQuery} />}
-              {activeRoute === "employees" && (
+              {activeRoute === "employees" && (rosterData ? (
+                <PartialRosterDirectoryModule
+                  records={rosterData.records}
+                  globalSearchQuery={globalSearchQuery}
+                />
+              ) : devRosterSummary ? (
+                <PartialRosterImportRequiredModule onNavigateSettings={() => {
+                  setSettingsInitialTab("dashboard_widgets");
+                  setActiveRoute("settings");
+                }} />
+              ) : (
                 <EmployeeModule
                   employees={employees}
                   onAddEmployee={handleAddEmployee}
@@ -768,7 +834,11 @@ export const MasterShell: React.FC = () => {
                   onUpdateEmployee={handleUpdateEmployee}
                   globalSearchQuery={globalSearchQuery}
                 />
+              ))}
+              {activeRoute === "workflows" && (
+                <WorkflowEngineModule employees={employees} globalSearchQuery={globalSearchQuery} />
               )}
+              {activeRoute === "profile" && <UserProfileModule />}
               {activeRoute === "invoices" && (
                 <InvoicingModule
                   drafts={invoiceDrafts}
@@ -801,17 +871,8 @@ export const MasterShell: React.FC = () => {
                 <FilesManagerModule
                   files={vaultFiles}
                   onUploadFile={(file) => setVaultFiles((prev) => [file, ...prev])}
-                  onOpenInDocMaker={(templateId) => {
-                    setSelectedDocTemplateId(templateId);
-                    setActiveRoute("doc_maker");
-                  }}
+                  canOpenDocMaker={moduleToggles.docMakerEnabled && hasPermission("route:doc_maker")}
                   globalSearchQuery={globalSearchQuery}
-                />
-              )}
-              {activeRoute === "doc_maker" && (
-                <DocMakerModule
-                  initialTemplateId={selectedDocTemplateId}
-                  onSaveToVault={(file) => setVaultFiles((prev) => [file, ...prev])}
                 />
               )}
               {activeRoute === "compliance" && (
@@ -822,12 +883,23 @@ export const MasterShell: React.FC = () => {
                   onAppendInvoice={handleEmitZatcaInvoice}
                 />
               )}
-              {activeRoute === "settings" && <MasterSettingsModule />}
+              {activeRoute === "settings" && (
+                <MasterSettingsModule
+                  rosterSummary={rosterSummary ?? null}
+                  rosterRecordsLoaded={Boolean(rosterData)}
+                  initialTab={settingsInitialTab}
+                  onImportRoster={setRosterData}
+                  onClearRoster={() => {
+                    setRosterData(null);
+                    setDevRosterSummary(null);
+                  }}
+                />
+              )}
             </RBACRouteGuard>
           </div>
         </main>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 bg-surface px-4 py-3 text-dynamic-xs text-muted sm:px-6 lg:px-8">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-theme bg-surface px-4 py-3 text-dynamic-xs text-muted sm:px-6 lg:px-8">
           <span>{t("shell.footer_compliance")}</span>
           <span className="rounded-lg bg-surface-elevated px-2.5 py-1 font-medium">
             {t("app.badge.pdpl")}
@@ -838,10 +910,10 @@ export const MasterShell: React.FC = () => {
       {/* GEOFENCING SAFETY PROVIDER VERIFICATION & EXCEPTION MODAL */}
       {geofenceModalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-2xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
+          <div ref={geofenceDialogRef} role="dialog" aria-modal="true" aria-labelledby="geofence-modal-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-2xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground">
+                <h2 id="geofence-modal-title" className="text-dynamic-xl font-extrabold text-foreground">
                   {t("geo.modal.title")}
                 </h2>
                 <p className="text-dynamic-xs text-muted">
@@ -887,28 +959,28 @@ export const MasterShell: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => simulateCoordinatePreset("inside_kafd")}
-                  className="p-3 rounded-xl bg-success-soft border border-success text-success font-bold text-dynamic-xs text-start"
+                  className="p-3 rounded-xl bg-success-soft border border-success text-success-text font-bold text-dynamic-xs text-start"
                 >
                   {t("geo.sim.inside_kafd")}
                 </button>
                 <button
                   type="button"
                   onClick={() => simulateCoordinatePreset("high_drift")}
-                  className="p-3 rounded-xl bg-warning-soft border border-warning text-warning font-bold text-dynamic-xs text-start"
+                  className="p-3 rounded-xl bg-warning-soft border border-warning text-warning-text font-bold text-dynamic-xs text-start"
                 >
                   {t("geo.sim.high_drift")}
                 </button>
                 <button
                   type="button"
                   onClick={() => simulateCoordinatePreset("outside_zone")}
-                  className="p-3 rounded-xl bg-danger-soft border border-danger text-danger font-bold text-dynamic-xs text-start"
+                  className="p-3 rounded-xl bg-danger-soft border border-danger text-danger-text font-bold text-dynamic-xs text-start"
                 >
                   {t("geo.sim.outside_zone")}
                 </button>
                 <button
                   type="button"
                   onClick={triggerBrowserHtml5Geolocation}
-                  className="p-3 rounded-xl bg-primary-soft border border-primary text-primary font-bold text-dynamic-xs text-start"
+                  className="p-3 rounded-xl bg-primary-soft border border-primary text-primary-text font-bold text-dynamic-xs text-start"
                 >
                   {t("geo.sim.live_gps")}
                 </button>
@@ -940,8 +1012,8 @@ export const MasterShell: React.FC = () => {
                 <div
                   className={`text-dynamic-base font-extrabold font-mono pt-1 ${
                     capturedCoords.accuracyMeters > 15
-                      ? "text-danger"
-                      : "text-success"
+                      ? "text-danger-text"
+                      : "text-success-text"
                   }`}
                 >
                   ±{capturedCoords.accuracyMeters}m
@@ -960,21 +1032,21 @@ export const MasterShell: React.FC = () => {
             {/* Verification Banner & Action */}
             {isGeoVerified ? (
               <div className="p-4 rounded-2xl bg-success-soft border border-success flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-2.5 text-success font-bold text-dynamic-sm">
+                <div className="flex items-center gap-2.5 text-success-text font-bold text-dynamic-sm">
                   <CheckCircle2 className="w-5 h-5 shrink-0" />
                   <span>{t("geo.status.verified")}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => executeAttendancePunch()}
-                  className="inline-flex min-h-10 items-center justify-center px-4 py-2 bg-success text-on-primary font-bold text-dynamic-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
+                  className="inline-flex min-h-10 items-center justify-center px-4 py-2 bg-success text-on-success font-bold text-dynamic-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
                 >
                   {t("geo.execute_punch")}
                 </button>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-danger-soft border-2 border-danger space-y-4">
-                <div className="flex items-start gap-2.5 text-danger">
+                <div className="flex items-start gap-2.5 text-danger-text">
                   <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
                     <div className="font-extrabold text-dynamic-sm">
@@ -1012,14 +1084,14 @@ export const MasterShell: React.FC = () => {
                         setExceptionSubmittedToast(true);
                         setTimeout(() => setExceptionSubmittedToast(false), 3000);
                       }}
-                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 bg-danger px-4 py-2 text-dynamic-xs font-bold text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2"
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 bg-danger px-4 py-2 text-dynamic-xs font-bold text-on-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2"
                     >
                       <Send className="h-4 w-4" />
                       <span>{t("geo.exception.submit_btn")}</span>
                     </button>
                   </div>
                   {exceptionSubmittedToast && (
-                    <div className="text-dynamic-xs font-bold text-success pt-1">
+                    <div className="text-dynamic-xs font-bold text-success-text pt-1">
                       {t("geo.exception.submitted")}
                     </div>
                   )}

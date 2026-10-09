@@ -1,7 +1,11 @@
 export const SIDEBAR_SNAP_WIDTHS = [80, 176, 336] as const;
 export const DEFAULT_SIDEBAR_WIDTH = SIDEBAR_SNAP_WIDTHS[1];
+export const SIDEBAR_COMPACT_BREAKPOINT = DEFAULT_SIDEBAR_WIDTH;
 
 export type SidebarSnapWidth = (typeof SIDEBAR_SNAP_WIDTHS)[number];
+
+export const isSidebarCompactWidth = (width: number): boolean =>
+  width < SIDEBAR_COMPACT_BREAKPOINT;
 
 export const clampSidebarWidth = (width: number): number =>
   Math.round(Math.max(SIDEBAR_SNAP_WIDTHS[0], Math.min(SIDEBAR_SNAP_WIDTHS[2], width)));

@@ -6,6 +6,7 @@ import { OperationsProvider } from "@/context/OperationsContext";
 import { WorkHubProvider } from "@/context/WorkHubContext";
 import { MailProvider } from "@/context/MailContext";
 import { CollaborationProvider } from "@/context/CollaborationContext";
+import { NotificationCenterProvider } from "@/context/NotificationCenterContext";
 import { MasterShell } from "@/components/MasterShell";
 
 const ProductionReadinessGate: React.FC = () => {
@@ -38,9 +39,11 @@ export const App: React.FC = () => {
       <OperationsProvider>
         <CollaborationProvider>
           <WorkHubProvider>
-            <MailProvider>
+          <MailProvider>
+            <NotificationCenterProvider>
               <MasterShell />
-            </MailProvider>
+            </NotificationCenterProvider>
+          </MailProvider>
           </WorkHubProvider>
         </CollaborationProvider>
       </OperationsProvider>

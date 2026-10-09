@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCollaboration, ChatConversation, CollaborationMeeting } from "@/context/CollaborationContext";
-import { iconButtonBaseClass, iconButtonClass, PageHeader, primaryButtonClass, secondaryButtonClass } from "@/components/DesignSystem";
+import { iconButtonBaseClass, iconButtonClass, PageHeader, primaryButtonClass, PrototypeNotice, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
 import { CallRoomModal } from "@/modules/CallRoomModal";
 
 type ChatFilter = "ALL" | "DIRECT" | "GROUP" | "TEAM";
@@ -51,6 +51,7 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
   const [messageDraft, setMessageDraft] = useState("");
   const [attachmentNames, setAttachmentNames] = useState<string[]>([]);
   const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
+  const newChatDialogRef = useModalFocus(newChatOpen, () => setNewChatOpen(false));
 
   const activeConversation = conversations.find((conversation) => conversation.id === selectedConversationId);
   const activeTeam = activeConversation?.teamId ? teams.find((team) => team.id === activeConversation.teamId) : undefined;
@@ -168,34 +169,40 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
         actions={<button type="button" onClick={() => setNewChatOpen(true)} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("collab.chat.new_chat")}</span></button>}
       />
 
-      <div className="flex items-start gap-2.5 rounded-xl border border-warning bg-warning-soft p-3 text-dynamic-xs text-warning">
-        <Video className="mt-0.5 h-4 w-4 shrink-0" /><p className="leading-relaxed">{t("collab.chat.demo_notice")}</p>
-      </div>
+      <PrototypeNotice label={t("collab.badge.local_demo")}>{t("collab.chat.demo_notice")}</PrototypeNotice>
 
-      <section className="grid min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] grid-cols-1 overflow-hidden rounded-2xl border border-theme bg-surface shadow-card md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className={`${mobileChatOpen ? "hidden" : "flex"} min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] flex-col border-b border-theme bg-surface-elevated md:flex md:border-b-0 md:border-e`}>
-          <div className="space-y-3 border-b border-theme p-3.5">
+      <section className="grid min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] grid-cols-1 overflow-hidden rounded-2xl border border-theme bg-surface shadow-card md:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
+        <aside aria-label={t("collab.chat.inbox")} className={`${mobileChatOpen ? "hidden" : "flex"} min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] min-w-0 flex-col border-b border-theme bg-surface-elevated md:flex md:border-b-0 md:border-e`}>
+          <div className="space-y-2 border-b border-theme p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-dynamic-sm font-bold text-foreground">{t("collab.chat.inbox")}</h2>
-              <button type="button" title={t("collab.chat.new_chat")} aria-label={t("collab.chat.new_chat")} onClick={() => setNewChatOpen(true)} className={`${iconButtonBaseClass} bg-surface-elevated text-primary hover:bg-primary-soft`}><PlusCircle className="h-4 w-4" /></button>
+              <button type="button" title={t("collab.chat.new_chat")} aria-label={t("collab.chat.new_chat")} onClick={() => setNewChatOpen(true)} className={`${iconButtonBaseClass} bg-surface-elevated text-primary-text hover:bg-primary-soft`}><PlusCircle className="h-4 w-4" /></button>
             </div>
-            <div className="flex gap-1 overflow-x-auto" role="group" aria-label={t("collab.chat.filters")}>
-              {filterOptions.map((item) => <button key={item.key} type="button" aria-pressed={chatFilter === item.key} onClick={() => setChatFilter(item.key)} className={`shrink-0 rounded-lg px-2.5 py-1.5 text-dynamic-xs font-semibold ${chatFilter === item.key ? "bg-primary-soft text-primary" : "text-muted hover:bg-surface"}`}>{t(item.labelKey)}</button>)}
+            <div className="flex flex-wrap gap-1" role="group" aria-label={t("collab.chat.filters")}>
+              {filterOptions.map((item) => <button key={item.key} type="button" aria-pressed={chatFilter === item.key} onClick={() => setChatFilter(item.key)} className={`whitespace-nowrap rounded-full px-2.5 py-1.5 text-dynamic-xs font-semibold transition-colors ${chatFilter === item.key ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface"}`}>{t(item.labelKey)}</button>)}
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2">
             {visibleConversations.map((conversation) => {
               const lastMessage = conversation.messages.at(-1);
               const selected = selectedConversationId === conversation.id;
               const isTeam = conversation.kind === "TEAM";
+              const directContact = conversation.kind === "DIRECT"
+                ? members.find((member) => member.id !== currentMemberId && conversation.participantIds.includes(member.id))
+                : undefined;
+              const presenceTone = directContact?.presence === "ONLINE"
+                ? "bg-success"
+                : directContact?.presence === "AWAY"
+                  ? "bg-warning"
+                  : "bg-muted";
               const initials = localize(conversation.title).slice(0, 1);
               return (
-                <button key={conversation.id} type="button" aria-current={selected ? "page" : undefined} onClick={() => { setSelectedConversationId(conversation.id); setMobileChatOpen(true); }} className={`flex w-full items-start gap-3 border-b border-theme px-3 py-3.5 text-start transition ${selected ? "bg-primary-soft/70" : "hover:bg-surface"}`}>
-                  <span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-dynamic-sm font-bold ${isTeam ? "bg-accent-soft text-accent" : "bg-primary-soft text-primary"}`}>{isTeam ? <Users className="h-5 w-5" /> : initials}<span className="absolute bottom-0 end-0 h-2.5 w-2.5 rounded-full border-2 border-surface bg-success" /></span>
+                <button key={conversation.id} type="button" aria-current={selected ? "page" : undefined} onClick={() => { setSelectedConversationId(conversation.id); setMobileChatOpen(true); }} className={`flex w-full min-w-0 items-center gap-2.5 rounded-lg border-s-2 px-2 py-2.5 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${selected ? "border-s-primary bg-primary-soft/70" : "border-s-transparent hover:bg-surface"}`}>
+                  <span className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-dynamic-sm font-bold ${isTeam ? "bg-accent-soft text-accent-text" : "bg-primary-soft text-primary-text"}`}>{isTeam ? <Users className="h-5 w-5" /> : initials}{directContact && <span aria-hidden="true" className={`absolute bottom-0 end-0 h-2.5 w-2.5 rounded-full border-2 border-surface ${presenceTone}`} />}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2"><span className="truncate text-dynamic-xs font-bold text-foreground">{localize(conversation.title)}</span><span className="shrink-0 text-dynamic-xs text-muted">{formatChatTime(conversation.updatedAtIso, language)}</span></span>
-                    <span className="mt-1 flex items-center justify-between gap-2"><span className="min-w-0 flex-1 truncate text-dynamic-xs text-muted">{lastMessage ? localize(lastMessage.body) : t("collab.chat.start_conversation")}</span>{conversation.unreadCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-dynamic-xs font-bold text-on-primary">{conversation.unreadCount}</span>}</span>
+                    <span className="flex items-center justify-between gap-2"><span className="truncate text-dynamic-sm font-semibold text-foreground">{localize(conversation.title)}</span><span className="shrink-0 text-dynamic-xs text-muted">{formatChatTime(conversation.updatedAtIso, language)}</span></span>
+                    <span className="mt-0.5 flex items-center justify-between gap-2"><span className="min-w-0 flex-1 truncate text-dynamic-xs text-muted">{lastMessage ? localize(lastMessage.body) : t("collab.chat.start_conversation")}</span>{conversation.unreadCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-dynamic-xs font-bold text-on-primary">{conversation.unreadCount}</span>}</span>
                   </span>
                 </button>
               );
@@ -204,8 +211,8 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
           </div>
 
           <div className="space-y-2 border-t border-theme p-3">
-            <div className="flex items-center justify-between gap-2"><h3 className="text-dynamic-xs font-bold text-foreground">{t("collab.meeting.upcoming")}</h3><CalendarClock className="h-4 w-4 text-primary" /></div>
-            {upcomingMeetings.map((meeting) => <button key={meeting.id} type="button" onClick={() => joinMeeting(meeting)} className="w-full rounded-xl border border-theme bg-surface p-2.5 text-start hover:border-primary"><span className="block truncate text-dynamic-xs font-semibold text-foreground">{localize(meeting.title)}</span><span className="mt-1 block text-dynamic-xs text-muted">{formatChatTime(meeting.startsAtIso, language)} · {meeting.durationMinutes} {t("collab.meeting.minutes")}</span></button>)}
+            <div className="flex items-center justify-between gap-2"><h3 className="text-dynamic-xs font-bold text-foreground">{t("collab.meeting.upcoming")}</h3><CalendarClock className="h-4 w-4 text-primary-text" /></div>
+            {upcomingMeetings.map((meeting) => <button key={meeting.id} type="button" onClick={() => joinMeeting(meeting)} className="w-full rounded-lg bg-surface p-2.5 text-start transition-colors hover:bg-surface-muted"><span className="block truncate text-dynamic-xs font-semibold text-foreground">{localize(meeting.title)}</span><span className="mt-1 block text-dynamic-xs text-muted">{formatChatTime(meeting.startsAtIso, language)} · {meeting.durationMinutes} {t("collab.meeting.minutes")}</span></button>)}
             {!upcomingMeetings.length && <p className="text-dynamic-xs text-muted">{t("collab.meeting.none_upcoming")}</p>}
           </div>
         </aside>
@@ -216,12 +223,12 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
               <header className="flex flex-wrap items-center justify-between gap-2 border-b border-theme px-3 py-3 sm:px-4">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <button type="button" onClick={() => setMobileChatOpen(false)} title={t("collab.chat.back_to_chats")} aria-label={t("collab.chat.back_to_chats")} className={`${iconButtonClass} md:hidden`}><ArrowLeft className="h-4 w-4 rtl:rotate-180" /></button>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">{activeConversation.kind === "TEAM" ? <Users className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}</span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary-text">{activeConversation.kind === "TEAM" ? <Users className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}</span>
                   <div className="min-w-0"><h2 className="truncate text-dynamic-sm font-bold text-foreground">{localize(activeConversation.title)}</h2><p className="truncate text-dynamic-xs text-muted">{activeTeam ? localize(activeTeam.name) : (partnerNames ?? []).join(", ") || `${t("collab.chat.group_members")} · ${activeConversation.participantIds.length}`}</p></div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => startMeeting(activeConversation)} title={t("collab.chat.start_call")} aria-label={t("collab.chat.start_call")} className={`${iconButtonBaseClass} bg-surface-elevated text-primary hover:bg-primary-soft`}><Video className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => startMeeting(activeConversation)} title={t("collab.chat.voice_call")} aria-label={t("collab.chat.voice_call")} className={`${iconButtonBaseClass} bg-surface-elevated text-primary hover:bg-primary-soft`}><Phone className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => startMeeting(activeConversation)} title={t("collab.chat.start_call")} aria-label={t("collab.chat.start_call")} className={`${iconButtonBaseClass} bg-surface-elevated text-primary-text hover:bg-primary-soft`}><Video className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => startMeeting(activeConversation)} title={t("collab.chat.voice_call")} aria-label={t("collab.chat.voice_call")} className={`${iconButtonBaseClass} bg-surface-elevated text-primary-text hover:bg-primary-soft`}><Phone className="h-4 w-4" /></button>
 
                 </div>
               </header>
@@ -234,9 +241,9 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
                   const sender = members.find((member) => member.id === message.senderId);
                   return (
                     <div key={message.id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
-                      {!isOwn && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-dynamic-xs font-bold text-accent">{sender ? localize(sender.name).slice(0, 1) : "?"}</span>}
+                      {!isOwn && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-dynamic-xs font-bold text-accent-text">{sender ? localize(sender.name).slice(0, 1) : "?"}</span>}
                       <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-card sm:max-w-[75%] ${isOwn ? "rounded-ee-md bg-primary text-on-primary" : "rounded-es-md border border-theme bg-surface text-foreground"}`}>
-                        {!isOwn && <p className="mb-1 text-dynamic-xs font-bold text-primary">{sender ? localize(sender.name) : t("collab.chat.unknown_sender")}</p>}
+                        {!isOwn && <p className="mb-1 text-dynamic-xs font-bold text-primary-text">{sender ? localize(sender.name) : t("collab.chat.unknown_sender")}</p>}
                         {localize(message.body) && <p className="whitespace-pre-wrap break-words text-dynamic-sm leading-relaxed">{localize(message.body)}</p>}
                         {message.attachmentNames.length > 0 && <div className="mt-2 space-y-1">{message.attachmentNames.map((name) => <div key={name} className={`inline-flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-dynamic-xs ${isOwn ? "bg-on-primary/10" : "bg-surface-elevated"}`}><Paperclip className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{name}</span></div>)}</div>}
                         <div className={`mt-1 flex items-center justify-end gap-1 text-dynamic-xs ${isOwn ? "text-on-primary/70" : "text-muted"}`}><time>{new Date(message.sentAtIso).toLocaleTimeString(language === "ar" ? "ar-SA" : "en-SA", { hour: "numeric", minute: "2-digit" })}</time>{isOwn && <CheckCheck className="h-3.5 w-3.5" />}</div>
@@ -244,10 +251,10 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
                     </div>
                   );
                 })}
-                {!activeConversation.messages.length && <div className="flex h-full min-h-40 flex-col items-center justify-center text-center"><MessageCircle className="h-8 w-8 text-primary" /><p className="mt-2 text-dynamic-sm font-semibold text-foreground">{t("collab.chat.empty_title")}</p><p className="mt-1 max-w-sm text-dynamic-xs text-muted">{t("collab.chat.empty_description")}</p></div>}
+                {!activeConversation.messages.length && <div className="flex h-full min-h-40 flex-col items-center justify-center text-center"><MessageCircle className="h-8 w-8 text-primary-text" /><p className="mt-2 text-dynamic-sm font-semibold text-foreground">{t("collab.chat.empty_title")}</p><p className="mt-1 max-w-sm text-dynamic-xs text-muted">{t("collab.chat.empty_description")}</p></div>}
               </div>
 
-              {attachmentNames.length > 0 && <div className="flex flex-wrap gap-2 border-t border-theme bg-surface px-3 pt-2">{attachmentNames.map((name, index) => <span key={`${name}-${index}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-surface-elevated px-2 py-1 text-dynamic-xs text-foreground"><Paperclip className="h-3 w-3" /><span className="max-w-48 truncate">{name}</span><button type="button" title={`${t("collab.chat.remove_attachment")} ${name}`} aria-label={`${t("collab.chat.remove_attachment")} ${name}`} onClick={() => setAttachmentNames((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><X className="h-4 w-4" /></button></span>)}</div>}
+              {attachmentNames.length > 0 && <div className="flex flex-wrap gap-2 border-t border-theme bg-surface px-3 pt-2">{attachmentNames.map((name, index) => <span key={`${name}-${index}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-surface-elevated px-2 py-1 text-dynamic-xs text-foreground"><Paperclip className="h-3 w-3" /><span className="max-w-48 truncate">{name}</span><button type="button" title={`${t("collab.chat.remove_attachment")} ${name}`} aria-label={`${t("collab.chat.remove_attachment")} ${name}`} onClick={() => setAttachmentNames((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-muted hover:text-danger-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><X className="h-4 w-4" /></button></span>)}</div>}
               <form onSubmit={submitMessage} className="flex items-end gap-2 border-t border-theme bg-surface p-3 sm:p-4">
                 <label title={t("collab.chat.attach_file")} className={`${iconButtonClass} cursor-pointer focus-within:ring-2 focus-within:ring-primary`} aria-label={t("collab.chat.attach_file")}><Paperclip className="h-4 w-4" /><input type="file" multiple className="sr-only" onChange={handleAttach} /></label>
                 <button type="button" onClick={() => setMessageDraft((value) => `${value}${value ? " " : ""}😊`)} title={t("collab.chat.add_emoji")} aria-label={t("collab.chat.add_emoji")} className={iconButtonClass}><Smile className="h-4 w-4" /></button>
@@ -256,23 +263,23 @@ export const ChatModule: React.FC<{ globalSearchQuery: string }> = ({ globalSear
               </form>
             </>
           ) : (
-            <div className="flex min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] flex-col items-center justify-center p-6 text-center"><MessageCircle className="h-10 w-10 text-primary" /><h2 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("collab.chat.no_selection_title")}</h2><p className="mt-1 max-w-sm text-dynamic-xs text-muted">{t("collab.chat.no_selection_description")}</p><button type="button" onClick={() => setNewChatOpen(true)} className={`${primaryButtonClass} mt-4`}><PlusCircle className="h-4 w-4" /><span>{t("collab.chat.new_chat")}</span></button></div>
+            <div className="flex min-h-[max(28rem,min(40rem,calc(100dvh_-_18rem)))] flex-col items-center justify-center p-6 text-center"><MessageCircle className="h-10 w-10 text-primary-text" /><h2 className="mt-3 text-dynamic-base font-semibold text-foreground">{t("collab.chat.no_selection_title")}</h2><p className="mt-1 max-w-sm text-dynamic-xs text-muted">{t("collab.chat.no_selection_description")}</p><button type="button" onClick={() => setNewChatOpen(true)} className={`${primaryButtonClass} mt-4`}><PlusCircle className="h-4 w-4" /><span>{t("collab.chat.new_chat")}</span></button></div>
           )}
         </main>
       </section>
 
       {newChatOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" aria-labelledby="new-chat-title" className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border-2 border-primary bg-surface p-4 shadow-shell">
+          <section ref={newChatDialogRef} role="dialog" aria-modal="true" aria-labelledby="new-chat-title" tabIndex={-1} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border-2 border-primary bg-surface p-4 shadow-shell">
             <div className="flex items-start justify-between gap-3 border-b border-theme pb-3"><div><h2 id="new-chat-title" className="text-dynamic-lg font-bold text-foreground">{t("collab.chat.new_chat")}</h2><p className="text-dynamic-xs text-muted">{t("collab.chat.new_chat_help")}</p></div><button type="button" title={t("collab.button.close")} aria-label={t("collab.button.close")} onClick={() => setNewChatOpen(false)} className={iconButtonClass}><X className="h-4 w-4" /></button></div>
             <form onSubmit={handleCreateConversation} className="space-y-4">
               <div className="flex flex-wrap gap-2" role="group" aria-label={t("collab.chat.conversation_type")}>
-                {(["DIRECT", "GROUP"] as const).map((kind) => <button key={kind} type="button" aria-pressed={newChatKind === kind} onClick={() => { setNewChatKind(kind); setSelectedMemberIds([]); }} className={`rounded-xl border px-3 py-2 text-dynamic-xs font-semibold ${newChatKind === kind ? "border-primary bg-primary-soft text-primary" : "border-theme bg-surface-elevated text-muted"}`}>{t(kind === "DIRECT" ? "collab.chat.direct" : "collab.chat.group")}</button>)}
+                {(["DIRECT", "GROUP"] as const).map((kind) => <button key={kind} type="button" aria-pressed={newChatKind === kind} onClick={() => { setNewChatKind(kind); setSelectedMemberIds([]); }} className={`rounded-xl border px-3 py-2 text-dynamic-xs font-semibold ${newChatKind === kind ? "border-primary bg-primary-soft text-primary-text" : "border-theme bg-surface-elevated text-muted"}`}>{t(kind === "DIRECT" ? "collab.chat.direct" : "collab.chat.group")}</button>)}
               </div>
               {newChatKind === "GROUP" && <div className="space-y-1.5"><label htmlFor="new-group-title" className="text-dynamic-xs font-semibold text-muted">{t("collab.chat.group_name")}</label><input id="new-group-title" required maxLength={80} value={newChatTitle} onChange={(event) => setNewChatTitle(event.target.value)} className="w-full rounded-xl border border-theme bg-surface-elevated px-3 py-2.5 text-dynamic-sm text-foreground" /></div>}
               <fieldset className="space-y-2"><legend className="text-dynamic-xs font-semibold text-muted">{t(newChatKind === "DIRECT" ? "collab.chat.choose_person" : "collab.chat.choose_people")}</legend><div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-theme p-2">{members.filter((member) => member.id !== currentMemberId).map((member) => {
                 const checked = selectedMemberIds.includes(member.id);
-                return <label key={member.id} className={`flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition ${checked ? "bg-primary-soft" : "hover:bg-surface-elevated"}`}><input type={newChatKind === "DIRECT" ? "radio" : "checkbox"} name="chat-member" checked={checked} onChange={() => newChatKind === "DIRECT" ? setSelectedMemberIds([member.id]) : toggleMember(member.id)} className="accent-primary" /><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-dynamic-xs font-bold text-accent">{localize(member.name).slice(0, 1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-dynamic-sm font-semibold text-foreground">{localize(member.name)}</span><span className="block truncate text-dynamic-xs text-muted">{localize(member.jobTitle)} · {member.email}</span></span><span className={`h-2 w-2 rounded-full ${member.presence === "ONLINE" ? "bg-success" : member.presence === "AWAY" ? "bg-warning" : "bg-muted"}`} /></label>;
+                return <label key={member.id} className={`flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition ${checked ? "bg-primary-soft" : "hover:bg-surface-elevated"}`}><input type={newChatKind === "DIRECT" ? "radio" : "checkbox"} name="chat-member" checked={checked} onChange={() => newChatKind === "DIRECT" ? setSelectedMemberIds([member.id]) : toggleMember(member.id)} className="accent-primary" /><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-dynamic-xs font-bold text-accent-text">{localize(member.name).slice(0, 1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-dynamic-sm font-semibold text-foreground">{localize(member.name)}</span><span className="block truncate text-dynamic-xs text-muted">{localize(member.jobTitle)} · {member.email}</span></span><span className={`h-2 w-2 rounded-full ${member.presence === "ONLINE" ? "bg-success" : member.presence === "AWAY" ? "bg-warning" : "bg-muted"}`} /></label>;
               })}</div></fieldset>
               <div className="flex justify-end gap-2 border-t border-theme pt-3"><button type="button" onClick={() => setNewChatOpen(false)} className={secondaryButtonClass}>{t("collab.button.cancel")}</button><button type="submit" disabled={!selectedMemberIds.length} className={`${primaryButtonClass} disabled:opacity-50`}><MessageCircle className="h-4 w-4" /><span>{t("collab.chat.create_chat")}</span></button></div>
             </form>

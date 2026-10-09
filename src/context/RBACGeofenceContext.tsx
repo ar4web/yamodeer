@@ -14,6 +14,8 @@ export type ModuleRouteKey =
   | "mail"
   | "chat"
   | "workspace"
+  | "workflows"
+  | "profile"
   | "employees"
   | "vendors"
   | "expenses"
@@ -30,6 +32,8 @@ export type AtomicPermissionScope =
   | "route:mail"
   | "route:chat"
   | "route:workspace"
+  | "route:workflows"
+  | "route:profile"
   | "route:employees"
   | "route:vendors"
   | "route:expenses"
@@ -83,6 +87,16 @@ export const ATOMIC_SCOPE_CATALOG: AtomicScopeMetadata[] = [
     scope: "route:workspace",
     category: { en: "Module Routing", ar: "توجيه الوحدات" },
     label: { en: "Access shared projects, teams and meetings in Work Hub", ar: "الوصول إلى المشاريع والفرق والاجتماعات المشتركة في مركز العمل" }
+  },
+  {
+    scope: "route:workflows",
+    category: { en: "Module Routing", ar: "توجيه الوحدات" },
+    label: { en: "Access workflow templates, approvals and local activity", ar: "الوصول إلى قوالب مسارات العمل والموافقات والنشاط المحلي" }
+  },
+  {
+    scope: "route:profile",
+    category: { en: "Module Routing", ar: "توجيه الوحدات" },
+    label: { en: "Access personal demo profile and accessibility preferences", ar: "الوصول إلى الملف الشخصي التجريبي وتفضيلات إمكانية الوصول" }
   },
   {
     scope: "route:employees",
@@ -198,6 +212,8 @@ export const RBAC_ACCESS_MATRIX: Record<CorporateRole, Record<AtomicPermissionSc
     "route:mail": true,
     "route:chat": true,
     "route:workspace": true,
+    "route:workflows": true,
+    "route:profile": true,
     "route:employees": true,
     "route:vendors": true,
     "route:expenses": true,
@@ -226,6 +242,8 @@ export const RBAC_ACCESS_MATRIX: Record<CorporateRole, Record<AtomicPermissionSc
     "route:mail": true,
     "route:chat": true,
     "route:workspace": true,
+    "route:workflows": true,
+    "route:profile": true,
     "route:employees": true,
     "route:vendors": true,
     "route:expenses": true,
@@ -254,6 +272,8 @@ export const RBAC_ACCESS_MATRIX: Record<CorporateRole, Record<AtomicPermissionSc
     "route:mail": true,
     "route:chat": true,
     "route:workspace": true,
+    "route:workflows": true,
+    "route:profile": true,
     "route:employees": true,
     "route:vendors": true,
     "route:expenses": true,
@@ -282,6 +302,8 @@ export const RBAC_ACCESS_MATRIX: Record<CorporateRole, Record<AtomicPermissionSc
     "route:mail": true,
     "route:chat": true,
     "route:workspace": true,
+    "route:workflows": true,
+    "route:profile": true,
     "route:employees": true,
     "route:vendors": false,
     "route:expenses": true,
@@ -310,6 +332,8 @@ export const RBAC_ACCESS_MATRIX: Record<CorporateRole, Record<AtomicPermissionSc
     "route:mail": true,
     "route:chat": true,
     "route:workspace": true,
+    "route:workflows": true,
+    "route:profile": true,
     "route:employees": false,
     "route:vendors": false,
     "route:expenses": true,
@@ -634,6 +658,8 @@ export const GeofencingSafetyProvider: React.FC<{ children: React.ReactNode }> =
         mail: "route:mail",
         chat: "route:chat",
         workspace: "route:workspace",
+        workflows: "route:workflows",
+        profile: "route:profile",
         employees: "route:employees",
         vendors: "route:vendors",
         expenses: "route:expenses",

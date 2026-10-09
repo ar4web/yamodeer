@@ -14,7 +14,7 @@ import { useOperations } from "@/context/OperationsContext";
 import { ExpenseCategory, ExpenseClaimRecord, ExpenseStatus } from "@/data/workspaceBlueprints";
 import { useCurrentRole } from "@/context/RBACGeofenceContext";
 import { EmployeeRecordBlueprint } from "@/data/mockBlueprints";
-import { DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, iconButtonClass, MetricCard, PageHeader, primaryButtonClass, ResponsiveFilterDrawer } from "@/components/DesignSystem";
+import { dangerButtonClass, DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, successButtonClass, useModalFocus } from "@/components/DesignSystem";
 
 export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; globalSearchQuery: string }> = ({ employees, globalSearchQuery }) => {
   const { t, localize, formatCurrencySAR } = useLanguage();
@@ -22,6 +22,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
 
   const { expenseClaims: claims, addExpenseClaim, updateExpenseStatus } = useOperations();
   const [modalOpen, setModalOpen] = useState(false);
+  const expenseDialogRef = useModalFocus(modalOpen, () => setModalOpen(false));
   const [statusFilter, setStatusFilter] = useState<"ALL" | ExpenseStatus>("ALL");
   const [sortBy, setSortBy] = useState<"DATE_DESC" | "AMOUNT_DESC" | "NAME_ASC">("DATE_DESC");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -132,14 +133,14 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
               className="md:hidden"
             />
             <div className="hidden items-center gap-2 xl:flex">
-              <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="h-10 min-w-36 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+              <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
                 <option value="ALL">{t("exp.filter.all_status")}</option>
                 <option value="PENDING">{t("exp.status.PENDING")}</option>
                 <option value="APPROVED">{t("exp.status.APPROVED")}</option>
                 <option value="REIMBURSED">{t("exp.status.REIMBURSED")}</option>
                 <option value="REJECTED">{t("exp.status.REJECTED")}</option>
               </select>
-              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-10 min-w-36 bg-surface-elevated px-3 text-dynamic-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
                 <option value="DATE_DESC">{t("ui.sort.date_desc")}</option>
                 <option value="AMOUNT_DESC">{t("ui.sort.amount_desc")}</option>
                 <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
@@ -153,6 +154,8 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
         )}
       />
 
+      <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
+
       <ResponsiveFilterDrawer
         id="expense-claim-filters"
         open={filterDrawerOpen}
@@ -165,7 +168,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
       >
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("exp.filter.all_status")}</span>
-          <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${formControlClassName} h-11`}>
             <option value="ALL">{t("exp.filter.all_status")}</option>
             <option value="PENDING">{t("exp.status.PENDING")}</option>
             <option value="APPROVED">{t("exp.status.APPROVED")}</option>
@@ -175,7 +178,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
         </label>
         <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
           <span>{t("ui.sort_by")}</span>
-          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full border border-theme bg-surface-elevated px-3 text-dynamic-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${formControlClassName} h-11`}>
             <option value="DATE_DESC">{t("ui.sort.date_desc")}</option>
             <option value="AMOUNT_DESC">{t("ui.sort.amount_desc")}</option>
             <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
@@ -254,13 +257,13 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                     <div className="font-bold text-dynamic-sm text-foreground">
                       {localize(claim.employeeName)}
                     </div>
-                    <div className="text-dynamic-xs font-mono text-primary pt-0.5">
+                    <div className="text-dynamic-xs font-mono text-primary-text pt-0.5">
                       {claim.id} • {claim.dateIso}
                     </div>
                   </td>
 
                   <td className="py-4 px-3 align-top">
-                    <span className="inline-block px-2.5 py-1 rounded-lg bg-primary-soft text-primary font-semibold text-dynamic-xs">
+                    <span className="inline-block px-2.5 py-1 rounded-lg bg-primary-soft text-primary-text font-semibold text-dynamic-xs">
                       {t(`exp.cat.${claim.category}`)}
                     </span>
                   </td>
@@ -292,10 +295,10 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                         className={`inline-block px-3 py-1 rounded-full font-bold text-dynamic-xs ${
                           claim.status === "APPROVED" ||
                           claim.status === "REIMBURSED"
-                            ? "bg-success-soft text-success"
+                            ? "bg-success-soft text-success-text"
                             : claim.status === "REJECTED"
-                            ? "bg-danger-soft text-danger"
-                            : "bg-warning-soft text-warning"
+                            ? "bg-danger-soft text-danger-text"
+                            : "bg-warning-soft text-warning-text"
                         }`}
                       >
                         {t(`exp.status.${claim.status}`)}
@@ -306,9 +309,9 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                       <button
                         type="button"
                         onClick={() => handleStatusDecision(claim.id, "REIMBURSED")}
-                        className="inline-flex min-h-10 items-center justify-center gap-2 bg-success px-3 py-2 text-on-primary text-dynamic-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
+                        className={successButtonClass}
                       >
-                        <Landmark className="h-4 w-4" />
+                        <Landmark aria-hidden="true" className="h-4 w-4" />
                         <span>{t("exp.status.settle_btn")}</span>
                       </button>
                     )}
@@ -320,9 +323,9 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                           onClick={() =>
                             handleStatusDecision(claim.id, "APPROVED")
                           }
-                          className="inline-flex min-h-10 items-center justify-center gap-2 bg-success px-3 py-2 text-on-primary text-dynamic-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2"
+                          className={successButtonClass}
                         >
-                          <CheckCircle2 className="h-4 w-4" />
+                          <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
                           <span>{t("dash.leave_queue.approve")}</span>
                         </button>
                         <button
@@ -330,9 +333,9 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                           onClick={() =>
                             handleStatusDecision(claim.id, "REJECTED")
                           }
-                          className="inline-flex min-h-10 items-center justify-center gap-2 bg-danger px-3 py-2 text-on-primary text-dynamic-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2"
+                          className={dangerButtonClass}
                         >
-                          <XCircle className="h-4 w-4" />
+                          <XCircle aria-hidden="true" className="h-4 w-4" />
                           <span>{t("dash.leave_queue.reject")}</span>
                         </button>
                       </div>
@@ -354,9 +357,9 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
       {/* Submit New Expense Claim Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-xl w-full p-4 shadow-shell space-y-4">
+          <div ref={expenseDialogRef} role="dialog" aria-modal="true" aria-labelledby="expense-modal-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-xl w-full p-4 shadow-shell space-y-4">
             <div className="flex items-center justify-between border-b border-theme pb-3">
-              <h2 className="text-dynamic-lg font-extrabold text-foreground">
+              <h2 id="expense-modal-title" className="text-dynamic-lg font-extrabold text-foreground">
                 {t("exp.modal.title")}
               </h2>
               <button
@@ -381,7 +384,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                     setNewClaimForm((p) => ({ ...p, employeeId: e.target.value }));
                     setClaimValidationMessage("");
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 >
                   {visibleEmployees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
@@ -405,7 +408,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                     }));
                     setClaimValidationMessage("");
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 >
                   <option value="TRAVEL_PER_DIEM">
                     {t("exp.cat.TRAVEL_PER_DIEM")}
@@ -433,7 +436,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                       merchantNameEn: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -453,10 +456,10 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                     }));
                     setClaimValidationMessage("");
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                  className={`${formControlClassName} font-mono`}
                 />
                 {claimValidationMessage && (
-                  <div role="alert" className="text-dynamic-xs text-danger font-semibold pt-1">
+                  <div role="alert" className="text-dynamic-xs text-danger-text font-semibold pt-1">
                     {claimValidationMessage}
                   </div>
                 )}
@@ -475,7 +478,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                       baseAmountSar: Number(e.target.value) || 0
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                  className={`${formControlClassName} font-mono`}
                 />
               </div>
             </div>

@@ -17,7 +17,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { iconButtonClass, PageHeader, primaryButtonClass, secondaryButtonClass, SegmentedTabs, TabPanel } from "@/components/DesignSystem";
+import { formControlClassName, iconButtonClass, PageHeader, primaryButtonClass, PrototypeNotice, secondaryButtonClass, surfaceClassName, TabPanel, useModalFocus } from "@/components/DesignSystem";
 import { useRBACGeofence } from "@/context/RBACGeofenceContext";
 import {
   KSA_LABOR_LAW_CONSTANTS,
@@ -69,6 +69,7 @@ export const ZatcaTlvQrCanvas: React.FC<{ tlvHexArray: string[] }> = ({
       width: 200,
       margin: 2,
       errorCorrectionLevel: "M",
+      // Keep high-contrast dark-on-white modules so the QR remains scanner-friendly in either theme.
       color: {
         dark: "#0f172a",
         light: "#ffffff"
@@ -126,13 +127,69 @@ interface ComplianceZatcaModuleProps {
   onAppendInvoice?: (newInv: ZatcaPhase2InvoiceBlueprint) => void;
 }
 
+type ComplianceTab = "labor_law" | "zatca_phase2";
+
+const ComplianceSidebarTabs: React.FC<{
+  value: ComplianceTab;
+  onChange: (value: ComplianceTab) => void;
+  laborEnabled: boolean;
+  zatcaEnabled: boolean;
+}> = ({ value, onChange, laborEnabled, zatcaEnabled }) => {
+  const { t } = useLanguage();
+  const items = [
+    ...(laborEnabled ? [{ value: "labor_law" as const, label: "comp.tab.labor_law", icon: <Scale className="h-4 w-4 shrink-0" aria-hidden="true" /> }] : []),
+    ...(zatcaEnabled ? [{ value: "zatca_phase2" as const, label: "comp.tab.zatca_phase2", icon: <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" /> }] : [])
+  ];
+
+  const moveFocus = (event: React.KeyboardEvent<HTMLButtonElement>, currentValue: ComplianceTab) => {
+    const currentIndex = items.findIndex((item) => item.value === currentValue);
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % items.length;
+    else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + items.length) % items.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = items.length - 1;
+    if (nextIndex === undefined || !items.length) return;
+    event.preventDefault();
+    const next = items[nextIndex];
+    onChange(next.value);
+    window.requestAnimationFrame(() => document.getElementById(`compliance-${next.value}-tab`)?.focus());
+  };
+
+  return (
+    <div id="compliance-sidebar-tablist" role="tablist" aria-label={t("ui.view_switcher")} aria-orientation="vertical" className="flex min-w-0 flex-col items-stretch gap-1.5 border-e border-theme pe-1.5 sm:pe-2">
+      {items.map((item) => {
+        const selected = value === item.value;
+        return (
+          <button
+            key={item.value}
+            id={`compliance-${item.value}-tab`}
+            type="button"
+            role="tab"
+            aria-label={t(item.label)}
+            title={t(item.label)}
+            aria-selected={selected}
+            aria-controls={`compliance-${item.value}-panel`}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onChange(item.value)}
+            onKeyDown={(event) => moveFocus(event, item.value)}
+            className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1 border-s-2 px-1 py-1.5 text-center text-dynamic-xs font-semibold leading-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:flex-row sm:justify-start sm:gap-2.5 sm:px-3 sm:text-start sm:text-dynamic-sm ${selected ? "border-primary font-bold text-primary-text" : "border-transparent text-muted hover:bg-surface-elevated/60 hover:text-foreground"}`}
+          >
+            {item.icon}
+            <span className="sr-only min-w-0 break-words sm:not-sr-only">{t(item.label)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
   employees = [],
   invoices,
   selectedInvoiceNumber,
   onAppendInvoice
 }) => {
-  const { t, localize, formatCurrencySAR } = useLanguage();
+  const { t, localize, formatCurrencySAR, language } = useLanguage();
   const { moduleToggles, toggleAppModule } = useRBACGeofence();
 
   const [activeTab, setActiveTab] = useState<"labor_law" | "zatca_phase2">(
@@ -214,6 +271,8 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
   );
   const [ublXmlModalOpen, setUblXmlModalOpen] = useState<boolean>(false);
   const [tlvBuilderModalOpen, setTlvBuilderModalOpen] = useState<boolean>(false);
+  const ublXmlDialogRef = useModalFocus(ublXmlModalOpen, () => setUblXmlModalOpen(false));
+  const tlvBuilderDialogRef = useModalFocus(tlvBuilderModalOpen, () => setTlvBuilderModalOpen(false));
 
   // Live Custom TLV Invoice Studio State
   const [builderForm, setBuilderForm] = useState({
@@ -252,7 +311,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
     const prevHash = invoices[0]?.currentCryptographicHash || "NWU0ZTg5YzI3Yjkx";
     const xmlHash = `sha256_icv_${nextIcv}_${builderForm.supplierVatNumber}`;
     const sig = `ECDSA_SIG_ICV_${nextIcv}_${grand}`;
-    const stamp = `CSID-PROD-KSA-${builderForm.supplierVatNumber.slice(0, 10)}-V2`;
+    const stamp = `CSID-DEMO-KSA-${builderForm.supplierVatNumber.slice(0, 10)}-V2`;
     const nowIso = "2026-10-02T14:20:00Z";
     let tlvHexArray: string[] = [];
     try {
@@ -350,32 +409,39 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
       <PageHeader
         eyebrow={t("nav.group.company")}
         title={t("comp.header.title")}
-        
-        actions={(
-          <SegmentedTabs
-            id="compliance"
-            ariaLabel={t("ui.view_switcher")}
-            value={visibleTab}
-            onChange={setActiveTab}
-            items={[
-              ...(moduleToggles.laborLawEngineEnabled
-                ? [{ value: "labor_law" as const, label: t("comp.tab.labor_law"), icon: <Scale className="h-4 w-4" /> }]
-                : []),
-              ...(moduleToggles.zatcaPhase2Enabled
-                ? [{ value: "zatca_phase2" as const, label: t("comp.tab.zatca_phase2"), icon: <QrCode className="h-4 w-4" /> }]
-                : [])
-            ]}
-          />
-        )}
       />
 
-      {/* TAB 1: KSA LABOR LAW COMPLIANCE FRAMEWORK */}
+      <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
+
+      <div className="grid min-w-0 grid-cols-[3.75rem_minmax(0,1fr)] gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
+        <aside className="sticky top-4 max-h-[calc(100vh-2rem)] min-w-0 self-start overflow-y-auto">
+          <ComplianceSidebarTabs
+            value={visibleTab}
+            onChange={setActiveTab}
+            laborEnabled={moduleToggles.laborLawEngineEnabled}
+            zatcaEnabled={moduleToggles.zatcaPhase2Enabled}
+          />
+        </aside>
+        <div className="min-w-0 space-y-4">
+          <div className="border-b border-theme pb-3 sm:hidden">
+            <h2 className="text-dynamic-base font-bold text-foreground">{t(visibleTab === "labor_law" ? "comp.tab.labor_law" : "comp.tab.zatca_phase2")}</h2>
+          </div>
+          {/* TAB 1: KSA LABOR LAW COMPLIANCE FRAMEWORK */}
       <TabPanel hidden={visibleTab !== "labor_law" || !moduleToggles.laborLawEngineEnabled} id="compliance-labor_law-panel" labelledBy={moduleToggles.laborLawEngineEnabled ? "compliance-labor_law-tab" : undefined}>
         <div className="space-y-4">
+          <div role="note" className={`${surfaceClassName} p-4`}>
+            <div className="text-dynamic-sm font-semibold text-foreground">
+              {t("comp.labor.intro_title")}
+            </div>
+            <p className="mt-1 text-dynamic-xs text-muted">
+              {t("comp.labor.intro")}
+            </p>
+          </div>
+
           {/* Working Hours, Ramadan Schedule & Employee Auto-Bind Bar */}
-          <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+          <div className={`${surfaceClassName} p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center`}>
             <div className="lg:col-span-5 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-primary-soft text-primary flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-primary-soft text-primary-text flex items-center justify-center shrink-0">
                 <Moon className="w-5 h-5" />
               </div>
               <div>
@@ -401,19 +467,19 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
             {/* Active Employee Auto-Bind Dropdown */}
             <div className="lg:col-span-4 space-y-1">
               <label className="flex items-center gap-1.5 text-dynamic-xs font-bold text-muted">
-                <UserCheck className="w-3.5 h-3.5 text-primary" />
+                <UserCheck className="w-3.5 h-3.5 text-primary-text" />
                 <span>{t("comp.autobind.label")}</span>
               </label>
               <select aria-label={t("comp.autobind.label")}
                 value={boundEmployeeId}
                 onChange={(e) => handleBindEmployee(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-xs font-semibold"
+                className={`${formControlClassName} text-dynamic-xs font-semibold`}
               >
                 <option value="CUSTOM">{t("comp.autobind.custom")}</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {localize(emp.name)} ({emp.id} •{" "}
-                    {emp.isSaudiNational ? "Saudi 10%/10%" : "Expat 2%"})
+                    {emp.isSaudiNational ? t("comp.gosi.rate_saudi") : t("comp.gosi.rate_expat")})
                   </option>
                 ))}
               </select>
@@ -435,11 +501,11 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
           </div>
 
           {/* 3 Statutory Engines Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Engine A: Article 107 Overtime Calculator */}
-            <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+            <div className={`${surfaceClassName} min-w-0 p-4 space-y-4`}>
               <div className="flex items-center gap-2.5 border-b border-theme pb-3">
-                <Clock className="w-5 h-5 text-primary" />
+                <Clock className="w-5 h-5 text-primary-text" />
                 <div>
                   <h2 className="text-dynamic-base font-bold text-foreground">
                     {t("comp.ot.title")}
@@ -461,7 +527,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                     step="0.01"
                     value={otBasicSalary}
                     onChange={(e) => updateNonNegativeNumberInput(e.target.value, setOtBasicSalary)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                    className={`${formControlClassName} font-mono`}
                   />
                 </div>
 
@@ -476,7 +542,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.25"
                       value={otStandardHours}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setOtStandardHours)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
 
@@ -490,26 +556,26 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.25"
                       value={otHolidayHours}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setOtHolidayHours)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
                 </div>
               </div>
 
               <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.ot.hourly_rate")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatCurrencySAR(otResult.hourlyBasicRate)} / hr
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.ot.std_payout")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatCurrencySAR(otResult.standardOvertimePay)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">
                     {t("comp.ot.hol_base_part")}
                   </span>
@@ -517,19 +583,19 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                     {formatCurrencySAR(otResult.holidayBaseOvertimePay)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">
                     {t("comp.ot.hol_mod_part")}
                   </span>
-                  <span className="font-mono text-warning">
+                  <span className="font-mono text-warning-text">
                     +{formatCurrencySAR(otResult.holidayPremiumSupplementPay)}
                   </span>
                 </div>
-                <div className="border-t border-theme pt-2 flex items-center justify-between">
-                  <span className="text-dynamic-sm font-bold text-primary">
+                <div className="border-t border-theme pt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <span className="text-dynamic-sm font-bold text-primary-text">
                     {t("comp.ot.total_payout")}
                   </span>
-                  <span className="text-dynamic-lg font-extrabold text-primary">
+                  <span className="text-dynamic-lg font-extrabold text-primary-text">
                     {formatCurrencySAR(otResult.grandTotalOvertimePay)}
                   </span>
                 </div>
@@ -537,9 +603,9 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
             </div>
 
             {/* Engine B: Conditional GOSI Contribution Schema */}
-            <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+            <div className={`${surfaceClassName} min-w-0 p-4 space-y-4`}>
               <div className="flex items-center gap-2.5 border-b border-theme pb-3">
-                <Landmark className="w-5 h-5 text-accent" />
+                <Landmark className="w-5 h-5 text-accent-text" />
                 <div>
                   <h2 className="text-dynamic-base font-bold text-foreground">
                     {t("comp.gosi.title")}
@@ -596,7 +662,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.01"
                       value={gosiBasicSalary}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setGosiBasicSalary)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
                   <div>
@@ -609,20 +675,20 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.01"
                       value={gosiHousingAllowance}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setGosiHousingAllowance)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
                 </div>
               </div>
 
               <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.gosi.wage_base")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatCurrencySAR(gosiResult.contributoryWageBase)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">
                     {t("comp.gosi.emp_share")} ({gosiResult.employeeRatePercent}%)
                   </span>
@@ -630,7 +696,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                     {formatCurrencySAR(gosiResult.employeeDeductionSar)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">
                     {t("comp.gosi.co_share")} ({gosiResult.employerRatePercent}%)
                   </span>
@@ -638,11 +704,11 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                     {formatCurrencySAR(gosiResult.employerContributionSar)}
                   </span>
                 </div>
-                <div className="border-t border-theme pt-2 flex items-center justify-between">
-                  <span className="text-dynamic-sm font-bold text-accent">
+                <div className="border-t border-theme pt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <span className="text-dynamic-sm font-bold text-accent-text">
                     {t("comp.gosi.net_impact")}
                   </span>
-                  <span className="text-dynamic-lg font-extrabold text-accent">
+                  <span className="text-dynamic-lg font-extrabold text-accent-text">
                     {formatCurrencySAR(gosiResult.totalGosiRemittanceSar)}
                   </span>
                 </div>
@@ -650,9 +716,9 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
             </div>
 
             {/* Engine C: End-of-Service Benefits (EOSB) Calculator */}
-            <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
+            <div className={`${surfaceClassName} min-w-0 p-4 space-y-4`}>
               <div className="flex items-center gap-2.5 border-b border-theme pb-3">
-                <Calculator className="w-5 h-5 text-success" />
+                <Calculator className="w-5 h-5 text-success-text" />
                 <div>
                   <h2 className="text-dynamic-base font-bold text-foreground">
                     {t("comp.eosb.title")}
@@ -675,7 +741,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.01"
                       value={eosbGrossWage}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setEosbGrossWage)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
                   <div>
@@ -688,7 +754,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       step="0.5"
                       value={eosbYears}
                       onChange={(e) => updateNonNegativeNumberInput(e.target.value, setEosbYears)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                      className={`${formControlClassName} font-mono`}
                     />
                   </div>
                 </div>
@@ -702,7 +768,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                     onChange={(e) =>
                       setEosbReason(e.target.value as TerminationReasonType)
                     }
-                    className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-xs"
+                    className={`${formControlClassName} text-dynamic-xs`}
                   >
                     <option value="LAYOFF_OR_EXPIRY">
                       {t("comp.eosb.reason.layoff")}
@@ -715,29 +781,29 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.eosb.first_5")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatCurrencySAR(eosbResult.firstFiveYearsAward)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.eosb.after_5")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatCurrencySAR(eosbResult.subsequentYearsAward)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-dynamic-xs">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
                   <span className="text-muted">{t("comp.eosb.modifier")}</span>
-                  <span className="font-mono font-bold text-warning">
+                  <span className="font-mono font-bold text-warning-text">
                     {eosbResult.statutoryModifierPercent}%
                   </span>
                 </div>
-                <div className="border-t border-theme pt-2 flex items-center justify-between">
-                  <span className="text-dynamic-sm font-bold text-success">
+                <div className="border-t border-theme pt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <span className="text-dynamic-sm font-bold text-success-text">
                     {t("comp.eosb.final_award")}
                   </span>
-                  <span className="text-dynamic-lg font-extrabold text-success">
+                  <span className="text-dynamic-lg font-extrabold text-success-text">
                     {formatCurrencySAR(eosbResult.netPayableEosbSar)}
                   </span>
                 </div>
@@ -745,88 +811,92 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
             </div>
           </div>
 
-          {/* Side-by-Side Article 84 vs Article 85 EOSB Tiered Entitlement Comparison Matrix */}
-          <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
-            <h3 className="text-dynamic-base font-bold text-foreground">
-              {t("comp.eosb.matrix_title")} ({formatCurrencySAR(eosbGrossWage)})
-            </h3>
-            <div role="region" aria-label={t("comp.eosb.matrix_title")} tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
-              <table className="min-w-[620px] w-full text-start border-collapse">
-                <thead>
-                  <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs uppercase">
-                    <th className="py-3 ps-4 pe-2 text-start font-bold">
-                      {t("comp.eosb.col_tenure")}
-                    </th>
-                    <th className="py-3 px-2 text-end font-bold">
-                      {t("comp.eosb.col_unadjusted")}
-                    </th>
-                    <th className="py-3 px-2 text-end font-bold">
-                      {t("comp.eosb.col_resignation")}
-                    </th>
-                    <th className="py-3 ps-2 pe-4 text-end font-bold">
-                      {t("comp.eosb.col_layoff")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-theme font-mono text-dynamic-xs">
-                  {[1.5, 3.5, 7.5, 11.0].map((tenureYrs) => {
-                    const resAward = calculateKsaEOSB(
-                      eosbGrossWage,
-                      tenureYrs,
-                      "RESIGNATION"
-                    );
-                    const layAward = calculateKsaEOSB(
-                      eosbGrossWage,
-                      tenureYrs,
-                      "LAYOFF_OR_EXPIRY"
-                    );
-                    return (
-                      <tr
-                        key={tenureYrs}
-                        className="transition-colors hover:bg-primary-soft/30"
-                      >
-                        <td className="py-3 ps-4 pe-2 font-bold text-foreground">
-                          {tenureYrs} Yrs
-                        </td>
-                        <td className="py-3 px-2 text-end text-muted">
-                          {formatCurrencySAR(layAward.grossUnadjustedAward)}
-                        </td>
-                        <td className="py-3 px-2 text-end font-bold text-warning">
-                          {formatCurrencySAR(resAward.netPayableEosbSar)} (
-                          {resAward.statutoryModifierPercent}%)
-                        </td>
-                        <td className="py-3 ps-2 pe-4 text-end font-extrabold text-success">
-                          {formatCurrencySAR(layAward.netPayableEosbSar)} (100%)
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <details className={`${surfaceClassName} overflow-hidden`}>
+            <summary className="cursor-pointer bg-surface-elevated px-4 py-4 text-dynamic-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+              {t("comp.eosb.matrix_toggle")}
+            </summary>
+            <div className="border-t border-theme p-4 space-y-4">
+              <h3 className="text-dynamic-base font-bold text-foreground">
+                {t("comp.eosb.matrix_title")} ({formatCurrencySAR(eosbGrossWage)})
+              </h3>
+              <div role="region" aria-label={t("comp.eosb.matrix_title")} tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+                <table className="min-w-[620px] w-full text-start border-collapse">
+                  <thead>
+                    <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs uppercase">
+                      <th className="py-3 ps-4 pe-2 text-start font-bold">
+                        {t("comp.eosb.col_tenure")}
+                      </th>
+                      <th className="py-3 px-2 text-end font-bold">
+                        {t("comp.eosb.col_unadjusted")}
+                      </th>
+                      <th className="py-3 px-2 text-end font-bold">
+                        {t("comp.eosb.col_resignation")}
+                      </th>
+                      <th className="py-3 ps-2 pe-4 text-end font-bold">
+                        {t("comp.eosb.col_layoff")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-theme font-mono text-dynamic-xs">
+                    {[1.5, 3.5, 7.5, 11.0].map((tenureYrs) => {
+                      const resAward = calculateKsaEOSB(
+                        eosbGrossWage,
+                        tenureYrs,
+                        "RESIGNATION"
+                      );
+                      const layAward = calculateKsaEOSB(
+                        eosbGrossWage,
+                        tenureYrs,
+                        "LAYOFF_OR_EXPIRY"
+                      );
+                      return (
+                        <tr
+                          key={tenureYrs}
+                          className="transition-colors hover:bg-primary-soft/30"
+                        >
+                          <td className="py-3 ps-4 pe-2 font-bold text-foreground">
+                            <bdi>{tenureYrs.toLocaleString(language === "ar" ? "ar-SA" : "en-SA")} {t("comp.eosb.years_suffix")}</bdi>
+                          </td>
+                          <td className="py-3 px-2 text-end text-muted">
+                            {formatCurrencySAR(layAward.grossUnadjustedAward)}
+                          </td>
+                          <td className="py-3 px-2 text-end font-bold text-warning-text">
+                            {formatCurrencySAR(resAward.netPayableEosbSar)} (
+                            {resAward.statutoryModifierPercent}%)
+                          </td>
+                          <td className="py-3 ps-2 pe-4 text-end font-extrabold text-success-text">
+                            {formatCurrencySAR(layAward.netPayableEosbSar)} (100%)
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </details>
         </div>
         </TabPanel>
 
       {/* TAB 2: ZATCA E-INVOICING PHASE 2 INTEGRATION MODULE */}
       <TabPanel hidden={visibleTab !== "zatca_phase2" || !moduleToggles.zatcaPhase2Enabled} id="compliance-zatca_phase2-panel" labelledBy={moduleToggles.zatcaPhase2Enabled ? "compliance-zatca_phase2-tab" : undefined}>
         <div className="space-y-4">
-          <div role="note" className="border-s-4 border-warning bg-warning-soft px-4 py-3 text-dynamic-sm text-foreground">
+          <div role="note" className="border-s-4 border-warning bg-warning-soft px-4 py-3 text-dynamic-sm text-warning-text">
             {t("zatca.sample_notice")}
           </div>
-          {/* Action Strip: Select Invoice, Inspect Signed UBL 2.1 XML, or Open Live TLV Builder */}
-          <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card flex flex-wrap items-center justify-between gap-3">
+          {/* Select a sample invoice, preview its XML, or open the local TLV builder. */}
+          <div className={`${surfaceClassName} p-4 flex flex-wrap items-center justify-between gap-3`}>
             <div className="min-w-0 flex-1 sm:min-w-[240px]">
               <select
                 aria-label={t("zatca.invoice_selector")}
                 value={activeInvoice.invoiceNumber}
                 onChange={(e) => setActiveInvoiceNo(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                className={`${formControlClassName} font-mono`}
               >
                 {invoices.map((inv) => (
                   <option key={inv.invoiceNumber} value={inv.invoiceNumber}>
                     {inv.invoiceNumber} (ICV #{inv.invoiceCounterValueIcv}) —{" "}
-                    {inv.supplierNameEn} ({formatCurrencySAR(inv.grandTotalSar)})
+                    {language === "ar" ? inv.supplierNameAr : inv.supplierNameEn} ({formatCurrencySAR(inv.grandTotalSar)})
                   </option>
                 ))}
               </select>
@@ -838,7 +908,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                 onClick={() => setUblXmlModalOpen(true)}
                 className={secondaryButtonClass}
               >
-                <Code2 className="w-4 h-4 text-accent" />
+                <Code2 className="w-4 h-4 text-accent-text" />
                 <span>{t("zatca.btn.ubl_xml")}</span>
               </button>
 
@@ -855,277 +925,320 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-            {/* Left 5 Cols: Cryptographic Envelope + TLV QR Matrix */}
-            <div className="xl:col-span-5 space-y-4">
-              <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-4">
-                {/* TLV QR Canvas Component */}
-                <div className="text-center space-y-2">
-                  <div className="text-dynamic-sm font-bold text-foreground">
-                    {t("zatca.qr_title")}
+          <section className={`${surfaceClassName} p-4 space-y-3`} aria-labelledby="zatca-overview-heading">
+            <h2 id="zatca-overview-heading" className="text-dynamic-sm font-bold text-foreground">
+              {t("zatca.summary.title")}
+            </h2>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-surface-elevated p-3">
+                <dt className="text-dynamic-xs font-semibold text-muted">
+                  {t("zatca.summary.invoice")}
+                </dt>
+                <dd className="mt-1 break-all font-mono text-dynamic-sm font-bold text-foreground">
+                  <bdi>{activeInvoice.invoiceNumber}</bdi>
+                </dd>
+              </div>
+              <div className="rounded-lg bg-surface-elevated p-3">
+                <dt className="text-dynamic-xs font-semibold text-muted">
+                  {t("zatca.summary.total")}
+                </dt>
+                <dd className="mt-1 font-mono text-dynamic-sm font-bold text-foreground">
+                  <bdi>{formatCurrencySAR(activeInvoice.grandTotalSar)}</bdi>
+                </dd>
+              </div>
+              <div className="rounded-lg bg-surface-elevated p-3">
+                <dt className="text-dynamic-xs font-semibold text-muted">
+                  {t("zatca.summary.date")}
+                </dt>
+                <dd className="mt-1 font-mono text-dynamic-sm font-bold text-foreground">
+                  <time dateTime={activeInvoice.issueTimestampIso}>
+                    {activeInvoice.issueTimestampIso.slice(0, 10)}
+                  </time>
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <details className={`${surfaceClassName} overflow-hidden`} open={Boolean(selectedInvoiceNumber)}>
+            <summary className="cursor-pointer bg-surface-elevated px-4 py-4 text-dynamic-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+              {t("zatca.details_toggle")}
+            </summary>
+            <div className="border-t border-theme p-4">
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                {/* Left 5 Cols: Cryptographic Envelope + TLV QR Matrix */}
+                <div className="xl:col-span-5 space-y-4">
+                  <div className={`${surfaceClassName} p-4 space-y-4`}>
+                    {/* TLV QR Canvas Component */}
+                    <div className="text-center space-y-2">
+                      <div className="text-dynamic-sm font-bold text-foreground">
+                        {t("zatca.qr_title")}
+                      </div>
+                      <p className="text-dynamic-xs text-muted">
+                        {t("zatca.qr_subtitle")}
+                      </p>
+                      <ZatcaTlvQrCanvas tlvHexArray={activeInvoice.tlvHexArray} />
+                    </div>
+
+                    {/* Phase 2 Cryptographic Fields */}
+                    <div className="space-y-2.5 pt-3 border-t border-theme">
+                      <div className="text-dynamic-xs font-bold text-primary-text uppercase tracking-wider">
+                        {t("zatca.phase2_telemetry")}
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
+                        <div className="flex items-center justify-between text-dynamic-xs text-muted">
+                          <span>{t("zatca.uuid")}</span>
+                          <span>
+                            {t("zatca.icv")}: #{activeInvoice.invoiceCounterValueIcv}
+                          </span>
+                        </div>
+                        <div className="font-mono text-dynamic-xs font-bold text-foreground break-all">
+                          {activeInvoice.uuid}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
+                        <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
+                          <Hash className="w-3.5 h-3.5 text-primary-text" />
+                          <span>{t("zatca.pih")}</span>
+                        </div>
+                        <div className="font-mono text-dynamic-xs text-foreground break-all">
+                          {activeInvoice.previousInvoiceHashPih}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
+                        <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
+                          <FileCheck2 className="w-3.5 h-3.5 text-success-text" />
+                          <span>{t("zatca.hash")}</span>
+                        </div>
+                        <div className="font-mono text-dynamic-xs text-foreground break-all">
+                          {activeInvoice.currentCryptographicHash}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
+                        <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
+                          <KeyRound className="w-3.5 h-3.5 text-accent-text" />
+                          <span>{t("zatca.signature")}</span>
+                        </div>
+                        <div className="font-mono text-dynamic-xs text-foreground break-all">
+                          {activeInvoice.digitalSignatureEcdsa}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-dynamic-xs text-muted">
-                    {t("zatca.qr_subtitle")}
-                  </p>
-                  <ZatcaTlvQrCanvas tlvHexArray={activeInvoice.tlvHexArray} />
+
+                  {/* TLV Hexadecimal Array Inspector */}
+                  <div className={`${surfaceClassName} p-4 space-y-3`}>
+                    <h3 className="text-dynamic-sm font-bold text-foreground">
+                      {t("zatca.tlv_inspector")}
+                    </h3>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pe-1">
+                      {decodedTlvFields.map((field) => (
+                        <div
+                          key={field.tag}
+                          className="p-2.5 rounded-xl bg-surface-elevated border border-theme space-y-1"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-dynamic-xs">
+                            <span className="font-bold text-primary-text">
+                              {localize(field.tagLabel)}
+                            </span>
+                            <span className="font-mono text-muted">
+                              {t("zatca.len_short")}: {field.byteLength}B
+                            </span>
+                          </div>
+                          <div className="text-dynamic-xs text-foreground font-medium break-all">
+                            {field.utf8Value}
+                          </div>
+                          <div className="text-dynamic-xs font-mono text-muted break-all">
+                            {t("zatca.hex_short")}: {field.hexSegment}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Phase 2 Cryptographic Fields */}
-                <div className="space-y-2.5 pt-3 border-t border-theme">
-                  <div className="text-dynamic-xs font-bold text-primary uppercase tracking-wider">
-                    {t("zatca.phase2_telemetry")}
+                {/* Right 7 Cols: Simultaneous Dual-Language English & Arabic Tax Invoice Blueprint */}
+                <div className={`xl:col-span-7 ${surfaceClassName} p-4 space-y-4`}>
+                  {/* Dual-Language Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-theme pb-5">
+                    <div className="space-y-1">
+                      <div className="inline-block px-3 py-1 rounded-full bg-primary text-on-primary font-bold text-dynamic-xs">
+                        {t("zatca.invoice_badge")}
+                      </div>
+                      <h2 className="text-dynamic-xl font-extrabold text-foreground pt-1">
+                        {t("zatca.bilingual_invoice")}
+                      </h2>
+                      <div className="text-dynamic-xs font-mono text-muted">
+                        #{activeInvoice.invoiceNumber} • {t("zatca.timestamp")}:{" "}
+                        {activeInvoice.issueTimestampIso}
+                      </div>
+                    </div>
+
+                    <div className="text-end font-mono">
+                      <div className="text-dynamic-xs text-muted">
+                        {t("zatca.csid_label")}
+                      </div>
+                      <div className="text-dynamic-sm font-bold text-primary-text">
+                        {activeInvoice.csidStampId}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
-                    <div className="flex items-center justify-between text-dynamic-xs text-muted">
-                      <span>{t("zatca.uuid")}</span>
-                      <span>
-                        {t("zatca.icv")}: #{activeInvoice.invoiceCounterValueIcv}
+                  {/* Simultaneous Bilingual Supplier & Buyer Blocks (Side-by-Side EN & AR) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Supplier Block */}
+                    <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
+                      <div className="text-dynamic-xs font-bold text-primary-text uppercase">
+                        {t("zatca.supplier")}
+                      </div>
+                      <div className="text-dynamic-sm font-bold text-foreground">
+                        {activeInvoice.supplierNameEn}
+                      </div>
+                      <div
+                        dir="rtl"
+                        className="text-dynamic-sm font-bold text-foreground border-t border-theme pt-1"
+                      >
+                        {activeInvoice.supplierNameAr}
+                      </div>
+                      <div className="text-dynamic-xs text-muted">
+                        {activeInvoice.supplierAddressEn}
+                      </div>
+                      <div dir="rtl" className="text-dynamic-xs text-muted">
+                        {activeInvoice.supplierAddressAr}
+                      </div>
+                      <div className="pt-1 font-mono text-dynamic-xs font-bold text-accent-text">
+                        {t("zatca.vat_no")}: {activeInvoice.supplierVatNumber}
+                      </div>
+                    </div>
+
+                    {/* Buyer Block */}
+                    <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
+                      <div className="text-dynamic-xs font-bold text-primary-text uppercase">
+                        {t("zatca.buyer")}
+                      </div>
+                      <div className="text-dynamic-sm font-bold text-foreground">
+                        {activeInvoice.buyerNameEn}
+                      </div>
+                      <div
+                        dir="rtl"
+                        className="text-dynamic-sm font-bold text-foreground border-t border-theme pt-1"
+                      >
+                        {activeInvoice.buyerNameAr}
+                      </div>
+                      <div className="text-dynamic-xs text-muted">
+                        {activeInvoice.buyerAddressEn}
+                      </div>
+                      <div dir="rtl" className="text-dynamic-xs text-muted">
+                        {activeInvoice.buyerAddressAr}
+                      </div>
+                      <div className="pt-1 font-mono text-dynamic-xs font-bold text-accent-text">
+                        {t("zatca.vat_no")}: {activeInvoice.buyerVatNumber}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bilingual Line Items Table */}
+                  <div role="region" aria-label={t("zatca.line_item")} tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain border border-theme rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+                    <table className="min-w-[640px] w-full text-start border-collapse">
+                      <thead>
+                        <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs">
+                          <th className="py-3 ps-4 pe-2 text-start font-bold">
+                            {t("zatca.line_item")}
+                          </th>
+                          <th className="py-3 px-2 text-center font-bold">
+                            {t("zatca.qty")}
+                          </th>
+                          <th className="py-3 px-2 text-end font-bold">
+                            {t("zatca.unit_price")}
+                          </th>
+                          <th className="py-3 px-2 text-end font-bold">
+                            {t("zatca.vat_15")}
+                          </th>
+                          <th className="py-3 ps-2 pe-4 text-end font-bold">
+                            {t("zatca.line_total")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme">
+                        {activeInvoice.lineItems.map((item) => (
+                          <tr key={item.id}>
+                            <td className="py-3.5 ps-4 pe-2">
+                              <div className="text-dynamic-sm font-bold text-foreground">
+                                {item.descriptionEn}
+                              </div>
+                              <div
+                                dir="rtl"
+                                className="text-dynamic-xs font-semibold text-muted pt-0.5"
+                              >
+                                {item.descriptionAr}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-2 text-center font-mono text-dynamic-sm text-foreground">
+                              {item.quantity}
+                            </td>
+                            <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-foreground">
+                              {formatCurrencySAR(item.unitPriceSar)}
+                            </td>
+                            <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-warning-text">
+                              {formatCurrencySAR(item.vatAmountSar)}
+                            </td>
+                            <td className="py-3.5 ps-2 pe-4 text-end font-mono font-bold text-dynamic-sm text-foreground">
+                              {formatCurrencySAR(item.lineTotalWithVatSar)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Bilingual Totals Summary Block */}
+                  <div className="p-4 rounded-2xl bg-surface-elevated border border-theme space-y-2.5">
+                    <div className="flex items-center justify-between text-dynamic-sm">
+                      <span className="font-semibold text-foreground">
+                        {t("zatca.subtotal")}
+                      </span>
+                      <span className="font-mono font-bold text-foreground">
+                        {formatCurrencySAR(activeInvoice.taxableSubtotalSar)}
                       </span>
                     </div>
-                    <div className="font-mono text-dynamic-xs font-bold text-foreground break-all">
-                      {activeInvoice.uuid}
+
+                    <div className="flex items-center justify-between text-dynamic-sm">
+                      <span className="font-semibold text-foreground">
+                        {t("zatca.total_vat")}
+                      </span>
+                      <span className="font-mono font-bold text-warning-text">
+                        {formatCurrencySAR(activeInvoice.totalVatSar)}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-primary-soft p-3 flex items-center justify-between gap-3">
+                      <span className="text-dynamic-lg font-extrabold text-primary-text">
+                        {t("zatca.grand_total")}
+                      </span>
+                      <span className="text-dynamic-2xl font-extrabold font-mono text-primary-text">
+                        {formatCurrencySAR(activeInvoice.grandTotalSar)}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
-                    <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
-                      <Hash className="w-3.5 h-3.5 text-primary" />
-                      <span>{t("zatca.pih")}</span>
-                    </div>
-                    <div className="font-mono text-dynamic-xs text-foreground break-all">
-                      {activeInvoice.previousInvoiceHashPih}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
-                    <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
-                      <FileCheck2 className="w-3.5 h-3.5 text-success" />
-                      <span>{t("zatca.hash")}</span>
-                    </div>
-                    <div className="font-mono text-dynamic-xs text-foreground break-all">
-                      {activeInvoice.currentCryptographicHash}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-surface-elevated border border-theme space-y-1">
-                    <div className="flex items-center gap-1.5 text-dynamic-xs text-muted">
-                      <KeyRound className="w-3.5 h-3.5 text-accent" />
-                      <span>{t("zatca.signature")}</span>
-                    </div>
-                    <div className="font-mono text-dynamic-xs text-foreground break-all">
-                      {activeInvoice.digitalSignatureEcdsa}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* TLV Hexadecimal Array Inspector */}
-              <div className="bg-surface border border-theme rounded-2xl p-4 shadow-card space-y-3">
-                <h3 className="text-dynamic-sm font-bold text-foreground">
-                  {t("zatca.tlv_inspector")}
-                </h3>
-                <div className="space-y-2 max-h-80 overflow-y-auto pe-1">
-                  {decodedTlvFields.map((field) => (
-                    <div
-                      key={field.tag}
-                      className="p-2.5 rounded-xl bg-surface-elevated border border-theme space-y-1"
-                    >
-                      <div className="flex items-center justify-between text-dynamic-xs">
-                        <span className="font-bold text-primary">
-                          {localize(field.tagLabel)}
-                        </span>
-                        <span className="font-mono text-muted">
-                          {t("zatca.len_short")}: {field.byteLength}B
-                        </span>
-                      </div>
-                      <div className="text-dynamic-xs text-foreground font-medium break-all">
-                        {field.utf8Value}
-                      </div>
-                      <div className="text-dynamic-xs font-mono text-muted break-all">
-                        {t("zatca.hex_short")}: {field.hexSegment}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
-
-            {/* Right 7 Cols: Simultaneous Dual-Language English & Arabic Tax Invoice Blueprint */}
-            <div className="xl:col-span-7 bg-surface border-2 border-primary rounded-2xl p-4 shadow-card space-y-4">
-              {/* Dual-Language Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-theme pb-5">
-                <div className="space-y-1">
-                  <div className="inline-block px-3 py-1 rounded-full bg-primary text-on-primary font-bold text-dynamic-xs">
-                    {t("zatca.invoice_badge")}
-                  </div>
-                  <h2 className="text-dynamic-xl font-extrabold text-foreground pt-1">
-                    {t("zatca.bilingual_invoice")}
-                  </h2>
-                  <div className="text-dynamic-xs font-mono text-muted">
-                    #{activeInvoice.invoiceNumber} • {t("zatca.timestamp")}:{" "}
-                    {activeInvoice.issueTimestampIso}
-                  </div>
-                </div>
-
-                <div className="text-end font-mono">
-                  <div className="text-dynamic-xs text-muted">
-                    {t("zatca.csid_label")}
-                  </div>
-                  <div className="text-dynamic-sm font-bold text-primary">
-                    {activeInvoice.csidStampId}
-                  </div>
-                </div>
-              </div>
-
-              {/* Simultaneous Bilingual Supplier & Buyer Blocks (Side-by-Side EN & AR) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Supplier Block */}
-                <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
-                  <div className="text-dynamic-xs font-bold text-primary uppercase">
-                    {t("zatca.supplier")}
-                  </div>
-                  <div className="text-dynamic-sm font-bold text-foreground">
-                    {activeInvoice.supplierNameEn}
-                  </div>
-                  <div
-                    dir="rtl"
-                    className="text-dynamic-sm font-bold text-foreground border-t border-theme pt-1"
-                  >
-                    {activeInvoice.supplierNameAr}
-                  </div>
-                  <div className="text-dynamic-xs text-muted">
-                    {activeInvoice.supplierAddressEn}
-                  </div>
-                  <div dir="rtl" className="text-dynamic-xs text-muted">
-                    {activeInvoice.supplierAddressAr}
-                  </div>
-                  <div className="pt-1 font-mono text-dynamic-xs font-bold text-accent">
-                    {t("zatca.vat_no")}: {activeInvoice.supplierVatNumber}
-                  </div>
-                </div>
-
-                {/* Buyer Block */}
-                <div className="p-4 rounded-xl bg-surface-elevated border border-theme space-y-2">
-                  <div className="text-dynamic-xs font-bold text-primary uppercase">
-                    {t("zatca.buyer")}
-                  </div>
-                  <div className="text-dynamic-sm font-bold text-foreground">
-                    {activeInvoice.buyerNameEn}
-                  </div>
-                  <div
-                    dir="rtl"
-                    className="text-dynamic-sm font-bold text-foreground border-t border-theme pt-1"
-                  >
-                    {activeInvoice.buyerNameAr}
-                  </div>
-                  <div className="text-dynamic-xs text-muted">
-                    {activeInvoice.buyerAddressEn}
-                  </div>
-                  <div dir="rtl" className="text-dynamic-xs text-muted">
-                    {activeInvoice.buyerAddressAr}
-                  </div>
-                  <div className="pt-1 font-mono text-dynamic-xs font-bold text-accent">
-                    {t("zatca.vat_no")}: {activeInvoice.buyerVatNumber}
-                  </div>
-                </div>
-              </div>
-
-              {/* Bilingual Line Items Table */}
-              <div role="region" aria-label={t("zatca.line_item")} tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain border border-theme rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
-                <table className="min-w-[640px] w-full text-start border-collapse">
-                  <thead>
-                    <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs">
-                      <th className="py-3 ps-4 pe-2 text-start font-bold">
-                        {t("zatca.line_item")}
-                      </th>
-                      <th className="py-3 px-2 text-center font-bold">
-                        {t("zatca.qty")}
-                      </th>
-                      <th className="py-3 px-2 text-end font-bold">
-                        {t("zatca.unit_price")}
-                      </th>
-                      <th className="py-3 px-2 text-end font-bold">
-                        {t("zatca.vat_15")}
-                      </th>
-                      <th className="py-3 ps-2 pe-4 text-end font-bold">
-                        {t("zatca.line_total")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-theme">
-                    {activeInvoice.lineItems.map((item) => (
-                      <tr key={item.id}>
-                        <td className="py-3.5 ps-4 pe-2">
-                          <div className="text-dynamic-sm font-bold text-foreground">
-                            {item.descriptionEn}
-                          </div>
-                          <div
-                            dir="rtl"
-                            className="text-dynamic-xs font-semibold text-muted pt-0.5"
-                          >
-                            {item.descriptionAr}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-2 text-center font-mono text-dynamic-sm text-foreground">
-                          {item.quantity}
-                        </td>
-                        <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-foreground">
-                          {formatCurrencySAR(item.unitPriceSar)}
-                        </td>
-                        <td className="py-3.5 px-2 text-end font-mono text-dynamic-sm text-warning">
-                          {formatCurrencySAR(item.vatAmountSar)}
-                        </td>
-                        <td className="py-3.5 ps-2 pe-4 text-end font-mono font-bold text-dynamic-sm text-foreground">
-                          {formatCurrencySAR(item.lineTotalWithVatSar)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Bilingual Totals Summary Block */}
-              <div className="p-4 rounded-2xl bg-primary-soft border border-primary space-y-2.5">
-                <div className="flex items-center justify-between text-dynamic-sm">
-                  <span className="font-semibold text-foreground">
-                    {t("zatca.subtotal")}
-                  </span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatCurrencySAR(activeInvoice.taxableSubtotalSar)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-dynamic-sm">
-                  <span className="font-semibold text-foreground">
-                    {t("zatca.total_vat")}
-                  </span>
-                  <span className="font-mono font-bold text-warning">
-                    {formatCurrencySAR(activeInvoice.totalVatSar)}
-                  </span>
-                </div>
-
-                <div className="border-t border-primary pt-3 flex items-center justify-between">
-                  <span className="text-dynamic-lg font-extrabold text-primary">
-                    {t("zatca.grand_total")}
-                  </span>
-                  <span className="text-dynamic-2xl font-extrabold font-mono text-primary">
-                    {formatCurrencySAR(activeInvoice.grandTotalSar)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          </details>
         </div>
         </TabPanel>
+        </div>
+      </div>
 
       {/* MODAL 1: ZATCA SIGNED OASIS UBL 2.1 XML ENVELOPE INSPECTOR */}
       {ublXmlModalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
+          <div ref={ublXmlDialogRef} role="dialog" aria-modal="true" aria-labelledby="zatca-xml-modal-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground">
+                <h2 id="zatca-xml-modal-title" className="text-dynamic-xl font-extrabold text-foreground">
                   {t("zatca.xml_modal.title")}
                 </h2>
                 <p className="text-dynamic-xs text-muted">
@@ -1191,13 +1304,13 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: LIVE ZATCA PHASE 2 INVOICE & TLV HEX ARRAY STUDIO */}
+      {/* MODAL 2: DEMO ZATCA PHASE 2 INVOICE & TLV PREVIEW */}
       {tlvBuilderModalOpen && (
         <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
+          <div ref={tlvBuilderDialogRef} role="dialog" aria-modal="true" aria-labelledby="zatca-tlv-builder-title" tabIndex={-1} className="bg-surface border-2 border-primary rounded-2xl max-w-3xl w-full p-4 shadow-shell space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 border-b border-theme pb-4">
               <div>
-                <h2 className="text-dynamic-xl font-extrabold text-foreground">
+                <h2 id="zatca-tlv-builder-title" className="text-dynamic-xl font-extrabold text-foreground">
                   {t("zatca.builder.title")}
                 </h2>
                 <p className="text-dynamic-xs text-muted">
@@ -1229,7 +1342,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       supplierNameEn: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1246,7 +1359,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       supplierNameAr: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1264,7 +1377,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       supplierVatNumber: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                  className={`${formControlClassName} font-mono`}
                 />
               </div>
 
@@ -1282,7 +1395,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       setBuilderForm((p) => ({ ...p, taxableSubtotalSar: value }))
                     )
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground font-mono text-dynamic-sm"
+                  className={`${formControlClassName} font-mono`}
                 />
               </div>
 
@@ -1299,7 +1412,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       descriptionEn: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
 
@@ -1316,7 +1429,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                       descriptionAr: e.target.value
                     }))
                   }
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-theme text-foreground text-dynamic-sm"
+                  className={formControlClassName}
                 />
               </div>
             </div>
@@ -1329,7 +1442,7 @@ export const ComplianceZatcaModule: React.FC<ComplianceZatcaModuleProps> = ({
                 />
               </div>
               <div className="md:col-span-7 space-y-2">
-                <div className="text-dynamic-xs font-bold text-primary">
+                <div className="text-dynamic-xs font-bold text-primary-text">
                   {t("zatca.builder.live_tlv_preview")}
                 </div>
                 <div className="space-y-1 font-mono text-dynamic-xs max-h-44 overflow-y-auto">

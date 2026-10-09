@@ -1,6 +1,8 @@
 export const DASHBOARD_WIDGET_IDS = [
   "workforce_headcount",
   "saudi_workforce_share",
+  "workforce_status_mix",
+  "workforce_nationality_mix",
   "attendance_latest_day",
   "needs_attention_total",
   "workforce_by_department",

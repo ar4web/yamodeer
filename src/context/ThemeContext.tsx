@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { ensureContrast, getAccessibleForeground, getContrastRatio, mixHexColors } from "@/services/themeContrast";
+import { getBorderRadiusTokens, normalizeBorderRadiusScale } from "@/services/themeShape";
 
 export type ThemeMode = "light" | "dark" | "high-contrast" | "auto";
 export type ResolvedThemeMode = "light" | "dark" | "high-contrast";
@@ -16,6 +18,8 @@ export type ColorPalette =
 export type EnglishFontFamily = "Inter" | "Roboto" | "SF Pro";
 export type ArabicFontFamily = "Cairo" | "IBM Plex Sans Arabic" | "Tajawal";
 export type FontScale = "sm" | "md" | "lg" | "xl";
+export type SurfaceStyle = "soft" | "balanced" | "defined";
+export type MotionPreference = "system" | "reduced";
 
 export interface ThemeCustomOverrides {
   primaryColor?: string;
@@ -29,6 +33,8 @@ export interface ThemePreferences {
   englishFont: EnglishFontFamily;
   arabicFont: ArabicFontFamily;
   fontScale: FontScale;
+  surfaceStyle: SurfaceStyle;
+  motionPreference: MotionPreference;
   customOverrides: ThemeCustomOverrides;
 }
 
@@ -79,22 +85,30 @@ const PALETTE_DICTIONARY: Record<ColorPalette, PaletteTokens> = {
   "oasis-mint": {
     primary: "#185b43", // Deep YaModeer evergreen
     primaryHover: "#124833",
+    primaryDark: "#2f7a63",
+    primaryHoverDark: "#3a8a73",
     primarySoftLight: "#eaf3ed",
-    primarySoftDark: "#1d392d",
+    primarySoftDark: "#2b4a3d",
     onPrimary: "#ffffff",
+    onPrimaryDark: "#e8f1ec",
     accent: "#b18a50", // Warm date-palm brass
+    accentDark: "#c7a366",
     accentSoftLight: "#f7f1e6",
-    accentSoftDark: "#3a3020"
+    accentSoftDark: "#4a3e2f"
   },
   "classic-corporate": {
     primary: "#1e3a8a", // Executive Navy
     primaryHover: "#1e40af",
+    primaryDark: "#2a3c7a",
+    primaryHoverDark: "#3b4f9e",
     primarySoftLight: "#eff6ff",
-    primarySoftDark: "#172554",
+    primarySoftDark: "#2a3c7a",
     onPrimary: "#ffffff",
+    onPrimaryDark: "#e8efff",
     accent: "#0284c7", // Corporate Sky
+    accentDark: "#0c4a6e",
     accentSoftLight: "#f0f9ff",
-    accentSoftDark: "#0c4a6e"
+    accentSoftDark: "#0f4a6e"
   },
   "royal-gold": {
     primary: "#b45309", // Diriyah Royal Amber Gold
@@ -109,10 +123,14 @@ const PALETTE_DICTIONARY: Record<ColorPalette, PaletteTokens> = {
   "stealth-midnight": {
     primary: "#4f46e5", // Cyber Indigo
     primaryHover: "#4338ca",
+    primaryDark: "#26235c",
+    primaryHoverDark: "#4338ca",
     primarySoftLight: "#eef2ff",
-    primarySoftDark: "#1e1b4b",
+    primarySoftDark: "#26235c",
     onPrimary: "#ffffff",
+    onPrimaryDark: "#e8ecff",
     accent: "#06b6d4", // Telemetry Cyan
+    accentDark: "#164e63",
     accentSoftLight: "#ecfeff",
     accentSoftDark: "#164e63"
   },
@@ -172,48 +190,48 @@ interface ModeSurfaceTokens {
 
 const MODE_SURFACES: Record<ResolvedThemeMode, ModeSurfaceTokens> = {
   light: {
-    canvas: "#f3f4f6",
+    canvas: "#f0f2f5",
     surface: "#ffffff",
-    surfaceElevated: "#f9fafb",
-    surfaceMuted: "#eef0f3",
+    surfaceElevated: "#f7f8fa",
+    surfaceMuted: "#e9edf2",
     foreground: "#202226",
     muted: "#4c535d",
-    border: "#f0f1f3",
+    border: "#c7ced8",
     success: "#537864",
     successSoft: "#e8f0eb",
     warning: "#8b7857",
     warningSoft: "#f3efe7",
     danger: "#955f64",
     dangerSoft: "#f5eaeb",
-    shellNav: "#eef0f3",
-    shellNavElevated: "#e3e6ea",
-    shellNavBorder: "#dfe2e7",
+    shellNav: "#e9edf2",
+    shellNavElevated: "#dde3eb",
+    shellNavBorder: "#b9c3d0",
     shellNavForeground: "#202226",
     shellNavMuted: "#4c535d",
-    shellNavActive: "rgba(32, 34, 38, 0.06)",
+    shellNavActive: "rgba(32, 34, 38, 0.07)",
     shadowShell: "0 20px 56px -34px rgba(25, 27, 31, 0.24)",
     shadowCard: "0 3px 12px -7px rgba(25, 27, 31, 0.14)"
   },
   dark: {
-    canvas: "#151619",
-    surface: "#1c1e22",
-    surfaceElevated: "#24262b",
-    surfaceMuted: "#2b2e33",
-    foreground: "#e7e8eb",
-    muted: "#a2a5ab",
-    border: "#2a2c31",
+    canvas: "#14161b",
+    surface: "#21252d",
+    surfaceElevated: "#2c323d",
+    surfaceMuted: "#39414e",
+    foreground: "#edf0f5",
+    muted: "#bac1cb",
+    border: "#525a69",
     success: "#8fafa0",
     successSoft: "#2a3731",
     warning: "#baa882",
     warningSoft: "#393329",
     danger: "#c18b92",
     dangerSoft: "#3b2a2d",
-    shellNav: "#1c1e22",
-    shellNavElevated: "#24262b",
-    shellNavBorder: "rgba(255, 255, 255, 0.08)",
-    shellNavForeground: "#e7e8eb",
-    shellNavMuted: "#a2a5ab",
-    shellNavActive: "rgba(255, 255, 255, 0.06)",
+    shellNav: "#101113",
+    shellNavElevated: "#1a1c1f",
+    shellNavBorder: "#2c2e32",
+    shellNavForeground: "#f2f3f4",
+    shellNavMuted: "#a6a9ae",
+    shellNavActive: "rgba(255, 255, 255, 0.075)",
     shadowShell: "0 24px 56px -34px rgba(0, 0, 0, 0.52)",
     shadowCard: "0 3px 12px -7px rgba(0, 0, 0, 0.38)"
   },
@@ -245,37 +263,37 @@ const MODE_SURFACES: Record<ResolvedThemeMode, ModeSurfaceTokens> = {
 const DARK_GOLDENROD_MODE_SURFACES: Record<"light" | "dark", ModeSurfaceTokens> = {
   light: {
     ...MODE_SURFACES.light,
-    canvas: DARK_GOLDENROD_SCALE[50],
+    canvas: "#f6f1e8",
     surface: "#ffffff",
-    surfaceElevated: DARK_GOLDENROD_SCALE[50],
-    surfaceMuted: DARK_GOLDENROD_SCALE[100],
+    surfaceElevated: DARK_GOLDENROD_SCALE[100],
+    surfaceMuted: DARK_GOLDENROD_SCALE[200],
     foreground: DARK_GOLDENROD_SCALE[950],
     muted: DARK_GOLDENROD_SCALE[700],
-    border: DARK_GOLDENROD_SCALE[200],
+    border: DARK_GOLDENROD_SCALE[300],
     shellNav: DARK_GOLDENROD_SCALE[100],
     shellNavElevated: DARK_GOLDENROD_SCALE[200],
-    shellNavBorder: DARK_GOLDENROD_SCALE[300],
+    shellNavBorder: DARK_GOLDENROD_SCALE[400],
     shellNavForeground: DARK_GOLDENROD_SCALE[950],
     shellNavMuted: DARK_GOLDENROD_SCALE[700],
-    shellNavActive: "rgba(109, 85, 44, 0.09)",
+    shellNavActive: "rgba(109, 85, 44, 0.1)",
     shadowShell: "0 20px 56px -34px rgba(36, 28, 15, 0.28)",
     shadowCard: "0 3px 12px -7px rgba(36, 28, 15, 0.2)"
   },
   dark: {
     ...MODE_SURFACES.dark,
     canvas: DARK_GOLDENROD_SCALE[950],
-    surface: DARK_GOLDENROD_SCALE[900],
-    surfaceElevated: DARK_GOLDENROD_SCALE[800],
-    surfaceMuted: DARK_GOLDENROD_SCALE[700],
+    surface: "#302516",
+    surfaceElevated: "#40321d",
+    surfaceMuted: "#4e3d22",
     foreground: DARK_GOLDENROD_SCALE[50],
-    muted: DARK_GOLDENROD_SCALE[300],
-    border: DARK_GOLDENROD_SCALE[800],
-    shellNav: DARK_GOLDENROD_SCALE[900],
-    shellNavElevated: DARK_GOLDENROD_SCALE[800],
-    shellNavBorder: DARK_GOLDENROD_SCALE[700],
+    muted: DARK_GOLDENROD_SCALE[200],
+    border: "#705a31",
+    shellNav: "#231a0d",
+    shellNavElevated: "#40321d",
+    shellNavBorder: "#705a31",
     shellNavForeground: DARK_GOLDENROD_SCALE[50],
     shellNavMuted: DARK_GOLDENROD_SCALE[300],
-    shellNavActive: "rgba(248, 244, 237, 0.08)",
+    shellNavActive: "rgba(248, 244, 237, 0.12)",
     shadowShell: "0 24px 56px -34px rgba(8, 6, 3, 0.58)",
     shadowCard: "0 3px 12px -7px rgba(8, 6, 3, 0.45)"
   }
@@ -377,27 +395,107 @@ const FONT_STACK_MAP: Record<EnglishFontFamily | ArabicFontFamily, string> = {
 export interface ThemeContextValue extends ThemePreferences {
   resolvedMode: ResolvedThemeMode;
   activeFontFamily: string;
+  activePrimaryColor: string;
+  activeAccentColor: string;
   setMode: (mode: ThemeMode) => void;
   setPalette: (palette: ColorPalette) => void;
   setEnglishFont: (font: EnglishFontFamily) => void;
   setArabicFont: (font: ArabicFontFamily) => void;
   setFontScale: (scale: FontScale) => void;
+  setSurfaceStyle: (style: SurfaceStyle) => void;
+  setMotionPreference: (preference: MotionPreference) => void;
   setCustomOverrides: (overrides: ThemeCustomOverrides) => void;
+  resetCustomColor: (color: "primaryColor" | "accentColor") => void;
   resetThemeDefaults: () => void;
 }
 
 const DEFAULT_PREFERENCES: ThemePreferences = {
   mode: "dark",
-  palette: "dark-goldenrod",
+  palette: "soft-charcoal",
   englishFont: "Inter",
   arabicFont: "Cairo",
   fontScale: "md",
+  surfaceStyle: "balanced",
+  motionPreference: "system",
   customOverrides: {}
 };
 
 const STORAGE_KEY_THEME = "ksa_hrms_theme_v4";
 const LEGACY_STORAGE_KEY_THEME = "ksa_hrms_theme_v3";
 const OLDER_STORAGE_KEY_THEME = "ksa_hrms_theme_v2";
+
+const THEME_MODES: ThemeMode[] = ["light", "dark", "high-contrast", "auto"];
+const COLOR_PALETTES: ColorPalette[] = [
+  "soft-charcoal",
+  "classic-corporate",
+  "oasis-mint",
+  "royal-gold",
+  "stealth-midnight",
+  "modern-matte",
+  "dark-goldenrod"
+];
+const ENGLISH_FONTS: EnglishFontFamily[] = ["Inter", "Roboto", "SF Pro"];
+const ARABIC_FONTS: ArabicFontFamily[] = ["Cairo", "IBM Plex Sans Arabic", "Tajawal"];
+const FONT_SCALES: FontScale[] = ["sm", "md", "lg", "xl"];
+const SURFACE_STYLES: SurfaceStyle[] = ["soft", "balanced", "defined"];
+const MOTION_PREFERENCES: MotionPreference[] = ["system", "reduced"];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const isColorHex = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+
+const normalizeThemePreferences = (value: unknown): ThemePreferences => {
+  const raw = isRecord(value) ? value : {};
+  const rawOverrides = isRecord(raw.customOverrides) ? raw.customOverrides : {};
+  const customOverrides: ThemeCustomOverrides = {};
+  if (isColorHex(rawOverrides.primaryColor)) customOverrides.primaryColor = rawOverrides.primaryColor;
+  if (isColorHex(rawOverrides.accentColor)) customOverrides.accentColor = rawOverrides.accentColor;
+  if (typeof rawOverrides.borderRadiusScale === "number" && Number.isFinite(rawOverrides.borderRadiusScale)) {
+    customOverrides.borderRadiusScale = normalizeBorderRadiusScale(rawOverrides.borderRadiusScale);
+  }
+
+  return {
+    mode: THEME_MODES.includes(raw.mode as ThemeMode) ? raw.mode as ThemeMode : DEFAULT_PREFERENCES.mode,
+    palette: COLOR_PALETTES.includes(raw.palette as ColorPalette) ? raw.palette as ColorPalette : DEFAULT_PREFERENCES.palette,
+    englishFont: ENGLISH_FONTS.includes(raw.englishFont as EnglishFontFamily) ? raw.englishFont as EnglishFontFamily : DEFAULT_PREFERENCES.englishFont,
+    arabicFont: ARABIC_FONTS.includes(raw.arabicFont as ArabicFontFamily) ? raw.arabicFont as ArabicFontFamily : DEFAULT_PREFERENCES.arabicFont,
+    fontScale: FONT_SCALES.includes(raw.fontScale as FontScale) ? raw.fontScale as FontScale : DEFAULT_PREFERENCES.fontScale,
+    surfaceStyle: SURFACE_STYLES.includes(raw.surfaceStyle as SurfaceStyle) ? raw.surfaceStyle as SurfaceStyle : DEFAULT_PREFERENCES.surfaceStyle,
+    motionPreference: MOTION_PREFERENCES.includes(raw.motionPreference as MotionPreference) ? raw.motionPreference as MotionPreference : DEFAULT_PREFERENCES.motionPreference,
+    customOverrides
+  };
+};
+
+const resolvePaletteColors = (prefs: ThemePreferences, resolvedMode: ResolvedThemeMode) => {
+  const paletteTokens = PALETTE_DICTIONARY[prefs.palette];
+  const modeTokens = prefs.palette === "dark-goldenrod" && resolvedMode !== "high-contrast"
+    ? DARK_GOLDENROD_MODE_SURFACES[resolvedMode]
+    : MODE_SURFACES[resolvedMode];
+  const isDarkLike = resolvedMode === "dark" || resolvedMode === "high-contrast";
+  const componentSurfaces = [modeTokens.canvas, modeTokens.surface, modeTokens.surfaceElevated, modeTokens.surfaceMuted];
+  const preferredPrimary = resolvedMode === "high-contrast"
+    ? "#facc15"
+    : prefs.customOverrides.primaryColor || (isDarkLike ? paletteTokens.primaryDark ?? paletteTokens.primary : paletteTokens.primary);
+  const preferredAccent = resolvedMode === "high-contrast"
+    ? "#38bdf8"
+    : prefs.customOverrides.accentColor || (isDarkLike ? paletteTokens.accentDark ?? paletteTokens.accent : paletteTokens.accent);
+  return {
+    primary: ensureContrast(preferredPrimary, componentSurfaces, 3),
+    accent: ensureContrast(preferredAccent, componentSurfaces, 3)
+  };
+};
+
+const borderForSurfaceStyle = (
+  base: string,
+  surfaces: string[],
+  style: SurfaceStyle,
+  resolvedMode: ResolvedThemeMode
+): string => {
+  if (resolvedMode === "high-contrast" || style === "balanced") return base;
+  if (style === "soft") return mixHexColors(base, surfaces[0], 0.18);
+  return ensureContrast(base, surfaces, 3);
+};
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
@@ -408,7 +506,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const currentRaw = localStorage.getItem(STORAGE_KEY_THEME);
       if (currentRaw) {
-        return { ...DEFAULT_PREFERENCES, ...JSON.parse(currentRaw) };
+        return normalizeThemePreferences(JSON.parse(currentRaw));
       }
 
       const legacyRaw =
@@ -456,10 +554,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const selectedFont = language === "ar" ? prefs.arabicFont : prefs.englishFont;
     return FONT_STACK_MAP[selectedFont];
   }, [language, prefs.arabicFont, prefs.englishFont]);
+  const activePaletteColors = useMemo(
+    () => resolvePaletteColors(prefs, resolvedMode),
+    [prefs, resolvedMode]
+  );
 
   // Inject CSS custom properties dynamically onto :root without requiring any external .css file
   useEffect(() => {
     const root = document.documentElement;
+    for (const [token, radius] of Object.entries(getBorderRadiusTokens(prefs.customOverrides.borderRadiusScale))) {
+      root.style.setProperty(`--radius-${token}`, radius);
+    }
     for (const [shade, color] of Object.entries(DARK_GOLDENROD_SCALE)) {
       root.style.setProperty(`--color-dark-goldenrod-${shade}`, color);
     }
@@ -471,17 +576,53 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const scaleTokens = FONT_SCALE_MATRIX[prefs.fontScale];
 
     const isDarkLike = resolvedMode === "dark" || resolvedMode === "high-contrast";
-
-    const activePrimary =
-      resolvedMode === "high-contrast"
-        ? "#facc15"
-        : prefs.customOverrides.primaryColor ||
-          (isDarkLike ? paletteTokens.primaryDark ?? paletteTokens.primary : paletteTokens.primary);
-    const activeAccent =
-      resolvedMode === "high-contrast"
-        ? "#38bdf8"
-        : prefs.customOverrides.accentColor ||
-          (isDarkLike ? paletteTokens.accentDark ?? paletteTokens.accent : paletteTokens.accent);
+    const componentSurfaces = [modeTokens.canvas, modeTokens.surface, modeTokens.surfaceElevated, modeTokens.surfaceMuted];
+    const activePrimarySoft = isDarkLike ? paletteTokens.primarySoftDark : paletteTokens.primarySoftLight;
+    const activeAccentSoft = isDarkLike ? paletteTokens.accentSoftDark : paletteTokens.accentSoftLight;
+    const activePrimary = activePaletteColors.primary;
+    const activeAccent = activePaletteColors.accent;
+    const activeBorder = borderForSurfaceStyle(
+      modeTokens.border,
+      [modeTokens.surface, modeTokens.surfaceElevated],
+      prefs.surfaceStyle,
+      resolvedMode
+    );
+    const activeShellNavBorder = borderForSurfaceStyle(
+      modeTokens.shellNavBorder,
+      [modeTokens.shellNav, modeTokens.shellNavElevated],
+      prefs.surfaceStyle,
+      resolvedMode
+    );
+    const activeCardShadow = prefs.surfaceStyle === "defined" && resolvedMode !== "high-contrast"
+      ? "none"
+      : modeTokens.shadowCard;
+    const preferredPrimaryHover = resolvedMode === "high-contrast"
+      ? "#eab308"
+      : prefs.customOverrides.primaryColor
+        ? mixHexColors(activePrimary, isDarkLike ? "#ffffff" : "#000000", 0.12)
+        : isDarkLike ? paletteTokens.primaryHoverDark ?? paletteTokens.primaryHover : paletteTokens.primaryHover;
+    const candidatePrimaryHover = ensureContrast(preferredPrimaryHover, componentSurfaces, 3);
+    const activeOnPrimary = getAccessibleForeground([activePrimary]);
+    const activePrimaryHover = getContrastRatio(activeOnPrimary, candidatePrimaryHover) >= 4.5
+      ? candidatePrimaryHover
+      : activePrimary;
+    const textBackgrounds = [
+      modeTokens.canvas,
+      ...componentSurfaces,
+      activePrimarySoft,
+      activeAccentSoft,
+      modeTokens.successSoft,
+      modeTokens.warningSoft,
+      modeTokens.dangerSoft
+    ];
+    const activePrimaryText = ensureContrast(activePrimary, textBackgrounds);
+    const activeAccentText = ensureContrast(activeAccent, textBackgrounds);
+    const activeSuccessText = ensureContrast(modeTokens.success, textBackgrounds);
+    const activeWarningText = ensureContrast(modeTokens.warning, textBackgrounds);
+    const activeDangerText = ensureContrast(modeTokens.danger, textBackgrounds);
+    const activeOnSuccess = getAccessibleForeground([modeTokens.success]);
+    const activeOnWarning = getAccessibleForeground([modeTokens.warning]);
+    const activeOnDanger = getAccessibleForeground([modeTokens.danger]);
 
     root.style.setProperty("--color-canvas", modeTokens.canvas);
     root.style.setProperty("--color-document-paper", "#ffffff");
@@ -492,47 +633,40 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.style.setProperty("--color-surface-muted", modeTokens.surfaceMuted);
     root.style.setProperty("--color-foreground", modeTokens.foreground);
     root.style.setProperty("--color-muted", modeTokens.muted);
-    root.style.setProperty("--color-border", modeTokens.border);
+    root.style.setProperty("--color-border", activeBorder);
     root.style.setProperty("--color-shell-nav", modeTokens.shellNav);
     root.style.setProperty("--color-shell-nav-elevated", modeTokens.shellNavElevated);
-    root.style.setProperty("--color-shell-nav-border", modeTokens.shellNavBorder);
+    root.style.setProperty("--color-shell-nav-border", activeShellNavBorder);
     root.style.setProperty("--color-shell-nav-foreground", modeTokens.shellNavForeground);
     root.style.setProperty("--color-shell-nav-muted", modeTokens.shellNavMuted);
     root.style.setProperty("--color-shell-nav-active", modeTokens.shellNavActive);
 
     root.style.setProperty("--color-primary", activePrimary);
-    root.style.setProperty(
-      "--color-primary-hover",
-      isDarkLike ? paletteTokens.primaryHoverDark ?? paletteTokens.primaryHover : paletteTokens.primaryHover
-    );
-    root.style.setProperty(
-      "--color-primary-soft",
-      isDarkLike ? paletteTokens.primarySoftDark : paletteTokens.primarySoftLight
-    );
-    root.style.setProperty(
-      "--color-on-primary",
-      resolvedMode === "high-contrast"
-        ? "#000000"
-        : isDarkLike
-          ? paletteTokens.onPrimaryDark ?? paletteTokens.onPrimary
-          : paletteTokens.onPrimary
-    );
+    root.style.setProperty("--color-primary-text", activePrimaryText);
+    root.style.setProperty("--color-primary-hover", activePrimaryHover);
+    root.style.setProperty("--color-primary-soft", activePrimarySoft);
+    root.style.setProperty("--color-on-primary", activeOnPrimary);
 
     root.style.setProperty("--color-accent", activeAccent);
-    root.style.setProperty(
-      "--color-accent-soft",
-      isDarkLike ? paletteTokens.accentSoftDark : paletteTokens.accentSoftLight
-    );
+    root.style.setProperty("--color-accent-text", activeAccentText);
+    root.style.setProperty("--color-accent-soft", activeAccentSoft);
 
     root.style.setProperty("--color-success", modeTokens.success);
+    root.style.setProperty("--color-success-text", activeSuccessText);
     root.style.setProperty("--color-success-soft", modeTokens.successSoft);
+    root.style.setProperty("--color-on-success", activeOnSuccess);
     root.style.setProperty("--color-warning", modeTokens.warning);
+    root.style.setProperty("--color-warning-text", activeWarningText);
     root.style.setProperty("--color-warning-soft", modeTokens.warningSoft);
+    root.style.setProperty("--color-on-warning", activeOnWarning);
     root.style.setProperty("--color-danger", modeTokens.danger);
+    root.style.setProperty("--color-danger-text", activeDangerText);
     root.style.setProperty("--color-danger-soft", modeTokens.dangerSoft);
+    root.style.setProperty("--color-on-danger", activeOnDanger);
 
     root.style.setProperty("--shadow-shell", modeTokens.shadowShell);
-    root.style.setProperty("--shadow-card", modeTokens.shadowCard);
+    root.style.setProperty("--shadow-card", activeCardShadow);
+    root.dataset.motionPreference = prefs.motionPreference;
 
     // Dynamic Typography Suite
     root.style.setProperty("--font-family-active", activeFontFamily);
@@ -557,14 +691,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {
       // ignore storage error
     }
-  }, [prefs, resolvedMode, activeFontFamily]);
+  }, [prefs, resolvedMode, activeFontFamily, activePaletteColors]);
 
   const setMode = useCallback((mode: ThemeMode) => {
     setPrefs((prev) => ({ ...prev, mode }));
   }, []);
 
   const setPalette = useCallback((palette: ColorPalette) => {
-    setPrefs((prev) => ({ ...prev, palette, customOverrides: {} }));
+    setPrefs((prev) => {
+      const customOverrides = prev.customOverrides.borderRadiusScale === undefined
+        ? {}
+        : { borderRadiusScale: prev.customOverrides.borderRadiusScale };
+      return { ...prev, palette, customOverrides };
+    });
   }, []);
 
   const setEnglishFont = useCallback((englishFont: EnglishFontFamily) => {
@@ -579,11 +718,32 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPrefs((prev) => ({ ...prev, fontScale }));
   }, []);
 
-  const setCustomOverrides = useCallback((customOverrides: ThemeCustomOverrides) => {
-    setPrefs((prev) => ({
-      ...prev,
-      customOverrides: { ...prev.customOverrides, ...customOverrides }
-    }));
+  const setSurfaceStyle = useCallback((surfaceStyle: SurfaceStyle) => {
+    setPrefs((prev) => ({ ...prev, surfaceStyle }));
+  }, []);
+
+  const setMotionPreference = useCallback((motionPreference: MotionPreference) => {
+    setPrefs((prev) => ({ ...prev, motionPreference }));
+  }, []);
+
+  const setCustomOverrides = useCallback((overrides: ThemeCustomOverrides) => {
+    setPrefs((prev) => {
+      const customOverrides = { ...prev.customOverrides };
+      if (isColorHex(overrides.primaryColor)) customOverrides.primaryColor = overrides.primaryColor;
+      if (isColorHex(overrides.accentColor)) customOverrides.accentColor = overrides.accentColor;
+      if (typeof overrides.borderRadiusScale === "number" && Number.isFinite(overrides.borderRadiusScale)) {
+        customOverrides.borderRadiusScale = normalizeBorderRadiusScale(overrides.borderRadiusScale);
+      }
+      return { ...prev, customOverrides };
+    });
+  }, []);
+
+  const resetCustomColor = useCallback((color: "primaryColor" | "accentColor") => {
+    setPrefs((prev) => {
+      const customOverrides = { ...prev.customOverrides };
+      delete customOverrides[color];
+      return { ...prev, customOverrides };
+    });
   }, []);
 
   const resetThemeDefaults = useCallback(() => {
@@ -595,24 +755,33 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prefs,
       resolvedMode,
       activeFontFamily,
+      activePrimaryColor: activePaletteColors.primary,
+      activeAccentColor: activePaletteColors.accent,
       setMode,
       setPalette,
       setEnglishFont,
       setArabicFont,
       setFontScale,
+      setSurfaceStyle,
+      setMotionPreference,
       setCustomOverrides,
+      resetCustomColor,
       resetThemeDefaults
     }),
     [
       prefs,
       resolvedMode,
       activeFontFamily,
+      activePaletteColors,
       setMode,
       setPalette,
       setEnglishFont,
       setArabicFont,
       setFontScale,
+      setSurfaceStyle,
+      setMotionPreference,
       setCustomOverrides,
+      resetCustomColor,
       resetThemeDefaults
     ]
   );

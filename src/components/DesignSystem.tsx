@@ -1,16 +1,281 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, SlidersHorizontal, X } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
-export type MetricTone = "primary" | "accent" | "success" | "warning" | "danger";
+export type MetricTone = "primary" | "accent" | "success" | "warning" | "danger" | "neutral";
 
 const metricToneClasses: Record<MetricTone, { icon: string; marker: string }> = {
-  primary: { icon: "bg-primary-soft text-primary", marker: "bg-primary" },
-  accent: { icon: "bg-accent-soft text-accent", marker: "bg-accent" },
-  success: { icon: "bg-success-soft text-success", marker: "bg-success" },
-  warning: { icon: "bg-warning-soft text-warning", marker: "bg-warning" },
-  danger: { icon: "bg-danger-soft text-danger", marker: "bg-danger" }
+  primary: { icon: "bg-primary-soft text-primary-text", marker: "bg-primary" },
+  accent: { icon: "bg-accent-soft text-accent-text", marker: "bg-accent" },
+  success: { icon: "bg-success-soft text-success-text", marker: "bg-success" },
+  warning: { icon: "bg-warning-soft text-warning-text", marker: "bg-warning" },
+  danger: { icon: "bg-danger-soft text-danger-text", marker: "bg-danger" },
+  neutral: { icon: "bg-surface-muted text-muted", marker: "bg-surface-muted" }
+};
+
+export const surfaceClassName = "rounded-lg border border-theme bg-surface shadow-card";
+export const quietSurfaceClassName = "rounded-lg bg-surface shadow-card";
+export const formControlClassName =
+  "min-h-10 w-full rounded-md border border-theme bg-surface px-3 py-2 text-dynamic-sm text-foreground placeholder:text-muted focus:border-primary-text focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
+export const inlineFormControlClassName =
+  "min-h-10 rounded-md border border-theme bg-surface px-3 py-2 text-foreground focus:border-primary-text focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
+
+export const PrototypeNotice: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div role="note" className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-dynamic-xs leading-relaxed text-warning-text">
+    <span className="min-w-0 break-words font-bold">{label}</span>
+    <span className="min-w-0 break-words">{children}</span>
+  </div>
+);
+
+export const AccessibleTooltip: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const isOpen = pinnedOpen || hovered || focused;
+  const tooltipId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<number | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState(() => ({
+    left: 16,
+    top: 16,
+    width: Math.min(384, typeof window === "undefined" ? 384 : Math.max(0, window.innerWidth - 32))
+  }));
+  const clearHoverExitTimer = useCallback(() => {
+    if (hoverTimeoutRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+  const handleTooltipMouseEnter = useCallback(() => {
+    clearHoverExitTimer();
+    setHovered(true);
+  }, [clearHoverExitTimer]);
+  const handleTooltipMouseLeave = useCallback(() => {
+    clearHoverExitTimer();
+    hoverTimeoutRef.current = window.setTimeout(() => {
+      hoverTimeoutRef.current = null;
+      setHovered(false);
+    }, 250);
+  }, [clearHoverExitTimer]);
+
+  useEffect(() => () => clearHoverExitTimer(), [clearHoverExitTimer]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    const updatePosition = () => {
+      const trigger = triggerRef.current;
+      const tooltip = tooltipRef.current;
+      if (!trigger || !tooltip) return;
+
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const margin = 16;
+      const gap = 8;
+      const width = Math.max(0, Math.min(384, viewportWidth - margin * 2));
+      const triggerRect = trigger.getBoundingClientRect();
+      const previousWidth = tooltip.style.width;
+      tooltip.style.width = `${width}px`;
+      const tooltipHeight = tooltip.getBoundingClientRect().height;
+      tooltip.style.width = previousWidth;
+
+      const maxLeft = Math.max(margin, viewportWidth - margin - width);
+      const left = Math.min(Math.max(margin, triggerRect.left), maxLeft);
+      const maxTop = Math.max(margin, viewportHeight - margin - tooltipHeight);
+      let top = triggerRect.bottom + gap;
+      if (top > maxTop && triggerRect.top - tooltipHeight - gap >= margin) {
+        top = triggerRect.top - tooltipHeight - gap;
+      }
+      top = Math.min(Math.max(margin, top), maxTop);
+      setTooltipPosition({ left, top, width });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      className="relative inline-flex shrink-0"
+      onMouseEnter={handleTooltipMouseEnter}
+      onMouseLeave={handleTooltipMouseLeave}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        aria-describedby={tooltipId}
+        aria-controls={tooltipId}
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          if (pinnedOpen) {
+            setPinnedOpen(false);
+            event.currentTarget.blur();
+          } else {
+            setPinnedOpen(true);
+          }
+        }}
+        onFocus={() => setFocused(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setPinnedOpen(false);
+            setHovered(false);
+            setFocused(false);
+            event.currentTarget.blur();
+          }
+        }}
+        onBlur={() => {
+          setFocused(false);
+          setPinnedOpen(false);
+        }}
+        className="inline-flex h-8 w-8 cursor-help items-center justify-center rounded-full text-muted transition hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <Info className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {typeof document !== "undefined" && createPortal(
+        <div
+          ref={tooltipRef}
+          id={tooltipId}
+          role="tooltip"
+          onMouseEnter={handleTooltipMouseEnter}
+          onMouseLeave={handleTooltipMouseLeave}
+          style={{ left: tooltipPosition.left, top: tooltipPosition.top, width: tooltipPosition.width }}
+          className={`fixed z-50 rounded-xl border border-theme bg-surface p-4 text-start text-dynamic-xs leading-relaxed text-muted shadow-shell transition duration-150 ${
+            isOpen ? "visible opacity-100" : "invisible opacity-0"
+          }`}
+        >
+          {children}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+const MODAL_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'summary',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])'
+].join(",");
+
+const activeModalStack: HTMLElement[] = [];
+
+/**
+ * Gives an open dialog a consistent keyboard and focus lifecycle. The dialog
+ * must be mounted while `open` is true and its root should have `tabIndex={-1}`.
+ */
+export const useModalFocus = (open: boolean, onClose: () => void) => {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const attachDialogRef = useCallback((dialog: HTMLElement | null) => {
+    dialogRef.current = dialog;
+  }, []);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog || typeof document === "undefined" || !document.body) return;
+
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    const inertedElements: Array<{ element: HTMLElement; wasInert: boolean }> = [];
+
+    // Inert every branch outside the dialog, but leave explicitly marked visual
+    // backdrops clickable. They should be aria-hidden and removed from tab order.
+    let branch: HTMLElement = dialog;
+    while (branch.parentElement) {
+      const parent = branch.parentElement;
+      for (const child of Array.from(parent.children)) {
+        if (!(child instanceof HTMLElement) || child === branch || child.hasAttribute("data-modal-backdrop")) continue;
+        inertedElements.push({ element: child, wasInert: child.inert });
+        child.inert = true;
+      }
+      if (parent === document.body) break;
+      branch = parent;
+    }
+
+    document.body.style.overflow = "hidden";
+    activeModalStack.push(dialog);
+
+    const getFocusableElements = () => Array.from(
+      dialog.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR)
+    ).filter((element) =>
+      element.getClientRects().length > 0 &&
+      !element.closest("[hidden], [inert], [aria-hidden='true']")
+    );
+
+    const focusables = getFocusableElements();
+    (focusables[0] ?? dialog).focus({ preventScroll: true });
+
+    const handleDocumentKeyDown = (event: KeyboardEvent) => {
+      if (activeModalStack[activeModalStack.length - 1] !== dialog) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const currentFocusables = getFocusableElements();
+      if (!currentFocusables.length) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+
+      const first = currentFocusables[0];
+      const last = currentFocusables[currentFocusables.length - 1];
+      const active = document.activeElement;
+      if (!dialog.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown, true);
+      const stackIndex = activeModalStack.lastIndexOf(dialog);
+      if (stackIndex >= 0) activeModalStack.splice(stackIndex, 1);
+      inertedElements.forEach(({ element, wasInert }) => {
+        if (element.isConnected) element.inert = wasInert;
+      });
+      document.body.style.overflow = previousBodyOverflow;
+      const previousDialog = activeModalStack[activeModalStack.length - 1];
+      const nestedDialogTarget = previousDialog?.querySelector<HTMLElement>(MODAL_FOCUSABLE_SELECTOR) ?? previousDialog;
+      const restoreTarget = previousFocus?.isConnected && !previousFocus.matches(":disabled")
+        ? previousFocus
+        : nestedDialogTarget ?? document.querySelector<HTMLElement>("[data-modal-focus-fallback]");
+      if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+    };
+  }, [open]);
+
+  return attachDialogRef;
 };
 
 export interface PageHeaderProps {
@@ -22,6 +287,7 @@ export interface PageHeaderProps {
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
+  eyebrow,
   title,
   titleAccessory,
   meta,
@@ -31,18 +297,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const hasToolbar = Boolean(meta || actions);
 
   return (
-    <div className="flex flex-col gap-4 pb-2 xl:flex-row xl:items-center xl:justify-between">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <h1 className="min-w-0 break-words text-dynamic-xl font-semibold leading-tight text-foreground">
-          {title}
-        </h1>
-        {titleAccessory}
+      <div className="flex flex-col gap-4 pb-2 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex min-w-0 flex-col items-start gap-1.5 border-s-2 border-accent ps-3 xl:min-w-[13rem] xl:flex-1">
+        {eyebrow && <p className="text-dynamic-xs font-semibold tracking-wide text-muted">{eyebrow}</p>}
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="min-w-0 break-words text-dynamic-xl font-semibold leading-tight text-foreground">
+            {title}
+          </h1>
+          {titleAccessory}
+        </div>
       </div>
       {hasToolbar && (
         <div
           role="toolbar"
           aria-label={t("ui.page_tools")}
-          className="flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[76%] xl:shrink-0 xl:justify-end"
+          className="flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[70%] xl:shrink-0 xl:justify-end"
         >
           {meta}
           {actions}
@@ -58,6 +327,11 @@ export interface MetricCardProps {
   icon: React.ReactNode;
   note?: React.ReactNode;
   tone?: MetricTone;
+  iconToneClassName?: string;
+  accentColor?: string;
+  valueSize?: "xl" | "2xl" | "3xl";
+  surfaceVariant?: "standard" | "quiet" | "outlined";
+  showNoteSeparator?: boolean;
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -65,25 +339,37 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   value,
   icon,
   note,
-  tone = "primary"
+  tone = "primary",
+  iconToneClassName,
+  accentColor,
+  valueSize = "xl",
+  surfaceVariant = "standard",
+  showNoteSeparator = true
 }) => {
   const toneClasses = metricToneClasses[tone];
+  const valueSizeClassName = valueSize === "3xl"
+    ? "text-dynamic-3xl"
+    : valueSize === "2xl" ? "text-dynamic-2xl" : "text-dynamic-xl";
+  const cardSurfaceClassName = surfaceVariant === "quiet" ? quietSurfaceClassName : surfaceClassName;
+  const cardHoverClassName = surfaceVariant === "standard" ? "transition-colors duration-200 hover:border-accent" : "";
+  const noteBoundaryClassName = surfaceVariant === "quiet" || !showNoteSeparator ? "" : "border-t border-theme";
 
   return (
-    <article className="relative isolate overflow-hidden bg-surface p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-shell">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-dynamic-sm font-semibold text-muted">{label}</p>
-          <div className="mt-2 text-dynamic-xl font-bold tracking-tight text-foreground tabular-nums">
+    <article className={`${cardSurfaceClassName} relative isolate flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${cardHoverClassName}`}>
+      {accentColor && <span aria-hidden="true" className="absolute inset-y-0 start-0 z-10 w-1.5" style={{ backgroundColor: accentColor }} />}
+      <div className="flex min-w-0 flex-1 items-start justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="min-h-10 break-words text-dynamic-sm font-semibold leading-snug text-muted">{label}</p>
+          <div className={`mt-1.5 break-words leading-tight ${valueSizeClassName} font-bold tracking-tight text-foreground tabular-nums`}>
             {value}
           </div>
           {note && (
-            <div className="mt-2 text-dynamic-xs leading-relaxed text-muted">
+            <div className={`mt-auto min-h-10 pt-3 ${noteBoundaryClassName} text-dynamic-xs leading-relaxed text-muted`}>
               {note}
             </div>
           )}
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClasses.icon}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconToneClassName ?? toneClasses.icon}`}>
           {icon}
         </div>
       </div>
@@ -164,7 +450,7 @@ export const DataTableFrame: React.FC<DataTableFrameProps> = ({
   scrollRegionClassName,
   children
 }) => (
-  <section className="overflow-hidden bg-surface shadow-card">
+  <section className={`${surfaceClassName} overflow-hidden`}>
     <div className="flex flex-col gap-3 bg-surface-elevated px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-5">
       <div className="min-w-0">
         <h2 className="text-dynamic-base font-semibold text-foreground">{title}</h2>
@@ -187,16 +473,23 @@ export const DataTableFrame: React.FC<DataTableFrameProps> = ({
 );
 
 export const iconButtonBaseClass =
-  "inline-flex h-10 w-10 shrink-0 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-theme transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 export const iconButtonClass =
   `${iconButtonBaseClass} bg-surface-elevated text-muted hover:bg-surface-muted hover:text-foreground`;
 
 export const primaryButtonClass =
-  "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 bg-primary px-4 py-2 text-dynamic-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-2.5 rounded-md bg-primary px-4 py-2 text-dynamic-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export const secondaryButtonClass =
-  "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 bg-surface-elevated px-4 py-2 text-dynamic-sm font-semibold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-2.5 rounded-md border border-theme bg-surface-elevated px-4 py-2 text-dynamic-sm font-semibold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+const compactActionButtonBaseClass =
+  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-dynamic-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+export const successButtonClass =
+  `${compactActionButtonBaseClass} bg-success text-on-success focus-visible:ring-success hover:opacity-90`;
+export const dangerButtonClass =
+  `${compactActionButtonBaseClass} bg-danger text-on-danger focus-visible:ring-danger hover:opacity-90`;
 
 export type ResponsiveDrawerPlacement = "start" | "end";
 
@@ -220,76 +513,14 @@ export const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
   children
 }) => {
   const { direction } = useLanguage();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const titleId = useId();
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const dialogRef = useModalFocus(open && Boolean(portalRoot), onClose);
 
   useEffect(() => {
     setPortalRoot(document.body);
   }, []);
-
-  useEffect(() => {
-    if (!open || !portalRoot) return;
-
-    previousFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    const previousOverflow = document.body.style.overflow;
-    const overlayLayer = dialogRef.current?.parentElement;
-    const inertSiblings = Array.from(document.body.children)
-      .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== overlayLayer)
-      .map((element) => ({ element, wasInert: element.inert }));
-    inertSiblings.forEach(({ element }) => { element.inert = true; });
-    document.body.style.overflow = "hidden";
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
-
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      inertSiblings.forEach(({ element, wasInert }) => { element.inert = wasInert; });
-      document.body.style.overflow = previousOverflow;
-      if (previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus({ preventScroll: true });
-      }
-    };
-  }, [open, portalRoot]);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-
-    const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
-        'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
-      ) ?? []
-    ).filter((element) => element.getClientRects().length > 0 && !element.closest("[hidden]"));
-
-    if (!focusable.length) {
-      event.preventDefault();
-      dialogRef.current?.focus();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-    if (!dialogRef.current?.contains(active)) {
-      event.preventDefault();
-      (event.shiftKey ? last : first).focus();
-    } else if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
@@ -326,7 +557,6 @@ export const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
         aria-modal={open ? "true" : undefined}
         aria-labelledby={titleId}
         tabIndex={-1}
-        onKeyDown={handleKeyDown}
         className={`flex h-[88dvh] max-h-[88dvh] w-full flex-col border-t border-theme bg-surface pb-[env(safe-area-inset-bottom)] shadow-shell sm:h-[100dvh] sm:max-h-[100dvh] sm:w-[min(88vw,22rem)] sm:border-t-0 ${desktopBorderClass}`}
       >
         <div
@@ -341,7 +571,6 @@ export const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-theme px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-dynamic-lg font-semibold text-foreground">{title}</h2>
           <button
-            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
@@ -394,7 +623,7 @@ export const FilterDrawerTrigger: React.FC<FilterDrawerTriggerProps> = ({
       <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
       <span>{label}</span>
       {activeCount > 0 && (
-        <span aria-hidden="true" className="inline-flex h-5 min-w-5 items-center justify-center bg-primary-soft px-1 text-dynamic-xs font-bold text-primary tabular-nums">
+        <span aria-hidden="true" className="inline-flex h-5 min-w-5 items-center justify-center bg-primary-soft px-1 text-dynamic-xs font-bold text-primary-text tabular-nums">
           {activeCount}
         </span>
       )}
@@ -495,7 +724,7 @@ export const ResponsiveFilterDrawer: React.FC<ResponsiveFilterDrawerProps> = ({
 );
 
 export const tabButtonClass = (active: boolean): string =>
-  `inline-flex min-h-10 items-center justify-center gap-2 px-3.5 py-2 text-dynamic-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+  `inline-flex min-h-10 items-center justify-center gap-2 rounded-sm px-3.5 py-2 text-dynamic-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
     active
       ? "bg-primary text-on-primary"
       : "text-muted hover:bg-surface-elevated hover:text-foreground"
@@ -568,7 +797,7 @@ export const SegmentedTabs = <Value extends string,>({
           : layout === "scroll"
             ? "flex w-full flex-nowrap overflow-x-auto"
             : "inline-flex flex-wrap"
-      } max-w-full items-center gap-1 bg-surface-elevated p-1`}
+      } max-w-full items-center gap-1 rounded-lg border border-theme bg-surface-elevated p-1`}
     >
       {items.map((item) => {
         const selected = value === item.value;
@@ -620,7 +849,7 @@ export const TabPanel: React.FC<TabPanelProps> = ({
     aria-labelledby={labelledBy}
     tabIndex={hidden ? -1 : 0}
     hidden={hidden}
-    className="min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+    className="app-panel-enter min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
   >
     {children}
   </div>
