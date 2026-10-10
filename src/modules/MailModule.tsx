@@ -29,7 +29,7 @@ import {
   useMail
 } from "@/context/MailContext";
 import { iconButtonBaseClass, iconButtonClass, PageHeader, primaryButtonClass, ResponsiveDrawer, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
-import { isMailAiEndpointConfigured, runMailAi } from "@/services/mailAi";
+import { isMailAiEndpointConfigured, runMailAi } from "@/services/mailAssist";
 
 type MailFolderView = MailFolderKey | "STARRED";
 type MessageFilter = "ALL" | "UNREAD" | "ATTACHMENTS";

@@ -24,6 +24,8 @@ export interface ExpenseClaimRecord {
   totalAmountSar: number;
   dateIso: string;
   status: ExpenseStatus;
+  receiptHash?: string;
+  receiptFileName?: string;
 }
 
 export const INITIAL_EXPENSE_CLAIMS: ExpenseClaimRecord[] = [

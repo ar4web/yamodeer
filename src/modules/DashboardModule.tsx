@@ -112,7 +112,7 @@ const QueueRow: React.FC<QueueRowProps> = ({ icon, iconTone, title, subtitle, va
   <button
     type="button"
     onClick={onClick}
-    className="flex w-full items-center gap-3 rounded-md border border-theme bg-surface p-3 text-start transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    className="flex w-full items-center gap-3 rounded-md border border-theme bg-surface p-4 text-start transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
   >
     <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>{icon}</span>
     <span className="min-w-0 flex-1">

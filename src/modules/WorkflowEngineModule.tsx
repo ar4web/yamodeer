@@ -29,6 +29,7 @@ import {
   X,
   XCircle
 } from "lucide-react";
+import { EngineDetailPanel } from "./EngineDetailPanel";
 import {
   dangerButtonClass,
   formControlClassName,
@@ -760,8 +761,8 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
       (delegation.scope === "ALL" || delegation.scope === categoryScope) &&
       delegation.startDate <= today &&
       delegation.endDate >= today
-    );
-  };
+);
+};
 
   const filteredInstances = instances.filter((instance) => currentRole !== "EMPLOYEE" || instance.requesterId === employeeId);
   const pendingInstances = filteredInstances.filter((instance) => instance.status === "PENDING");
@@ -897,7 +898,7 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
                 <span className={labelClass}>{t("workflow.request.template")}</span>
                 <select className={formControlClassName} value={requestForm.templateId} onChange={(event) => setRequestForm((current) => ({ ...current, templateId: event.target.value }))}>
                   {templates.filter((template) => template.status === "ACTIVE" && supportsLinearDemoExecution(template)).map((template) => (
-                    <option key={template.id} value={template.id}>{localize(template.name)} · v{template.version}</option>
+                    <option key={template.id} value={template.id}>{localize(template.name)} ┬╖ v{template.version}</option>
                   ))}
                 </select>
               </label>
@@ -905,7 +906,7 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
                 <span className={labelClass}>{t("workflow.request.requester")}</span>
                 <select className={formControlClassName} value={requestForm.requesterId} onChange={(event) => setRequestForm((current) => ({ ...current, requesterId: event.target.value }))} disabled={currentRole === "EMPLOYEE"}>
                   {(currentRole === "EMPLOYEE" ? employees.slice(0, 1) : employees).map((employee) => (
-                    <option key={employee.id} value={employee.id}>{localize(employee.name)} · {employee.id}</option>
+                    <option key={employee.id} value={employee.id}>{localize(employee.name)} ┬╖ {employee.id}</option>
                   ))}
                 </select>
               </label>
@@ -975,7 +976,7 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
                             <span className="text-dynamic-xs font-semibold text-muted">{sourceLabel(item.kind)}</span>
                           </div>
                           <p className="mt-1.5 line-clamp-2 text-dynamic-sm font-bold text-foreground">{item.title}</p>
-                          <p className="mt-1 truncate text-dynamic-xs text-muted">{item.requester} · {item.department}</p>
+                          <p className="mt-1 truncate text-dynamic-xs text-muted">{item.requester} ┬╖ {item.department}</p>
                         </div>
                         {item.amountSar !== undefined && <span className="shrink-0 text-dynamic-xs font-bold tabular-nums text-foreground">{formatCurrencySAR(item.amountSar)}</span>}
                       </div>
@@ -1046,7 +1047,7 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
                         {template && (
                           <div className="rounded-lg border border-theme p-3">
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                              <div><span className="text-dynamic-xs font-semibold text-muted">{t("workflow.detail.template")}</span><div className="text-dynamic-sm font-bold text-foreground">{localize(template.name)} · v{instance.templateVersion}</div></div>
+                              <div><span className="text-dynamic-xs font-semibold text-muted">{t("workflow.detail.template")}</span><div className="text-dynamic-sm font-bold text-foreground">{localize(template.name)} ┬╖ v{instance.templateVersion}</div></div>
                               <span className={neutralPillClass}>{t(`workflow.category.${template.category.toLowerCase()}`)}</span>
                             </div>
                             <ol className="flex flex-wrap items-center gap-2" aria-label={t("workflow.detail.approval_progress")}>
@@ -1069,8 +1070,8 @@ export const WorkflowEngineModule: React.FC<WorkflowEngineModuleProps> = ({ empl
                     );
                   })()}
 
-                  {selectedWorkItem.origin === "OPERATIONS" && (
-                    <div className="rounded-lg border border-primary/20 bg-primary-soft/40 p-3 text-dynamic-xs leading-relaxed text-primary-text">
+                                    {selectedWorkItem.origin === "OPERATIONS" && (
+<div className="rounded-lg border border-primary/20 bg-primary-soft/40 p-3 text-dynamic-xs leading-relaxed text-primary-text">
                       <div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><p>{t("workflow.operations.sync_notice")}</p></div>
                       <p className="mt-2"><strong>{t("workflow.operations.policy_note")}</strong></p>
                     </div>

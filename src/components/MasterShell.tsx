@@ -118,7 +118,7 @@ export const RBACRouteGuard: React.FC<{
   // Check if the module was deactivated in the App Store Toggle Matrix
   if (!isRouteModuleEnabled(route)) {
     return (
-      <div className="bg-surface border-2 border-warning rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 text-center space-y-4">
+      <div className="bg-surface border border-warning rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 text-center space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-warning-soft text-warning-text flex items-center justify-center mx-auto">
           <Lock className="w-7 h-7" />
         </div>
@@ -168,7 +168,7 @@ export const RBACRouteGuard: React.FC<{
   // Evaluate strict RBAC permission matrix for the active route
   if (!canAccessRoute(route)) {
     return (
-      <div className="bg-surface border-2 border-danger rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 space-y-4">
+      <div className="bg-surface border border-danger rounded-2xl p-4 shadow-card max-w-2xl mx-auto my-6 space-y-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-danger-soft text-danger-text flex items-center justify-center shrink-0">
             <ShieldAlert className="w-6 h-6" />

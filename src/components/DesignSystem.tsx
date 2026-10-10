@@ -5,6 +5,8 @@ import { useLanguage } from "@/context/LanguageContext";
 
 export type MetricTone = "primary" | "accent" | "success" | "warning" | "danger" | "neutral";
 
+// Border radius scale: rounded-md (controls/buttons), rounded-lg (cards/panels), rounded-2xl (modals/dialogs)
+
 const metricToneClasses: Record<MetricTone, { icon: string; marker: string }> = {
   primary: { icon: "bg-primary-soft text-primary-text", marker: "bg-primary" },
   accent: { icon: "bg-accent-soft text-accent-text", marker: "bg-accent" },
@@ -134,7 +136,7 @@ export const AccessibleTooltip: React.FC<{ label: string; children: React.ReactN
           setFocused(false);
           setPinnedOpen(false);
         }}
-        className="inline-flex h-8 w-8 cursor-help items-center justify-center rounded-full text-muted transition hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex h-10 w-10 cursor-help items-center justify-center rounded-full text-muted transition hover:bg-surface-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Info className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -672,7 +674,7 @@ export const FilterDrawerEdgeTrigger: React.FC<FilterDrawerEdgeTriggerProps> = (
       aria-controls={controls}
       aria-expanded={expanded}
       onClick={onClick}
-      className={`fixed ${edgePositionClass} top-1/2 z-40 inline-flex h-14 w-9 -translate-y-1/2 flex-col items-center justify-center gap-0.5 border-y border-theme bg-surface-elevated text-muted shadow-card transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${edgeBorderClass} ${className}`}
+      className={`fixed ${edgePositionClass} top-1/2 z-40 inline-flex h-12 w-8 -translate-y-1/2 flex-col items-center justify-center gap-0.5 border-y border-theme bg-surface-elevated text-muted shadow-card transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${edgeBorderClass} ${className}`}
     >
       <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
       <ArrowIcon className="h-4 w-4" aria-hidden="true" />

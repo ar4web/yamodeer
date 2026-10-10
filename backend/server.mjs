@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { parseApiPort, resolveLocalApiBinding } from "./config.mjs";
+import { createPrincipalResolver, authorizeCompanyResource } from "./security/production-auth-contract.mjs";
 
 const { Pool } = pg;
 const PORT = parseApiPort(process.env.API_PORT);
@@ -108,12 +109,47 @@ const readJsonBody = async (request) => {
   }
 };
 
-const requireDemoRole = (request) => {
-  const role = request.headers["x-demo-role"];
-  if (typeof role !== "string" || !ALLOWED_ROLES.has(role)) {
+const ROLE_TENANT_MAP = Object.freeze({
+  SUPER_ADMIN: { tenantId: "tn-root", companyIds: ["co-hq", "co-branch"], scopes: ["workhub:read", "workhub:write"] },
+  ADMIN: { tenantId: "tn-root", companyIds: ["co-hq"], scopes: ["workhub:read", "workhub:write"] },
+  HR_OPS: { tenantId: "tn-root", companyIds: ["co-hq"], scopes: ["workhub:read", "workhub:write"] },
+  MANAGER: { tenantId: "tn-root", companyIds: ["co-hq"], scopes: ["workhub:read"] },
+  EMPLOYEE: { tenantId: "tn-root", companyIds: ["co-hq"], scopes: ["workhub:read"] }
+});
+
+const principalResolver = createPrincipalResolver({
+  authenticateIdentity: (request) => {
+    const role = request.headers["x-demo-role"];
+    if (typeof role !== "string" || !ALLOWED_ROLES.has(role)) return null;
+    return { issuer: "local-demo", subject: `demo:${role}` };
+  },
+  resolveEntitlements: (verifiedIdentity) => {
+    const role = verifiedIdentity.subject.replace("demo:", "");
+    const mapped = ROLE_TENANT_MAP[role];
+    return {
+      userId: `user-${role.toLowerCase()}`,
+      tenantId: mapped.tenantId,
+      companyIds: mapped.companyIds,
+      scopes: mapped.scopes,
+      employeeId: null
+    };
+  }
+});
+
+const requireDemoRole = async (request) => {
+  const principal = await principalResolver(request);
+  if (!principal) {
     throw Object.assign(new Error("A valid local demo role is required"), { statusCode: 401 });
   }
-  return role;
+  const authz = authorizeCompanyResource(principal, {
+    scope: request.method === "GET" ? "workhub:read" : "workhub:write",
+    tenantId: principal.tenantId,
+    companyId: principal.companyIds[0]
+  });
+  if (!authz.allowed) {
+    throw Object.assign(new Error(`Access denied: ${authz.reason}`), { statusCode: 403 });
+  }
+  return principal;
 };
 
 const isoValue = (value) => value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -250,7 +286,8 @@ const server = createServer(async (request, response) => {
   }
 
   try {
-    const role = requireDemoRole(request);
+    const principal = await requireDemoRole(request);
+    const role = principal.subject.replace("demo:", "");
     if (request.method === "GET") {
       const data = await readWorkspace(role);
       sendJson(response, 200, { role, data });

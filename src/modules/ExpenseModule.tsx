@@ -33,7 +33,9 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
     merchantNameEn: "SAR High-Speed Railway Business Class",
     merchantNameAr: "قطار الحرمين السريع — درجة الأعمال",
     merchantVatNumber: "300881920300003",
-    baseAmountSar: 3200
+    baseAmountSar: 3200,
+    receiptFile: null as File | null,
+    receiptHash: "" as string
   });
 
   const canApprove = hasPermission("dept:manage_team_leave_ot");
@@ -108,8 +110,10 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
       baseAmountSar: base,
       vatAmountSar: vat,
       totalAmountSar: base + vat,
-      dateIso: "2026-10-02",
-      status: "PENDING"
+      dateIso: new Date().toISOString().slice(0, 10),
+      status: "PENDING",
+      receiptHash: newClaimForm.receiptHash || undefined,
+      receiptFileName: newClaimForm.receiptFile ? newClaimForm.receiptFile.name : undefined
     };
 
     addExpenseClaim(created);
@@ -230,21 +234,24 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
         <table className="min-w-[760px] w-full border-collapse text-start">
             <thead>
               <tr className="bg-surface-elevated border-b border-theme text-muted text-dynamic-xs uppercase tracking-wider">
-                <th className="py-3.5 ps-5 pe-3 text-start font-bold">
-                  {t("exp.col.claim_id")}
-                </th>
-                <th className="py-3.5 px-3 text-start font-bold">
-                  {t("exp.col.category")}
-                </th>
-                <th className="py-3.5 px-3 text-start font-bold">
-                  {t("exp.col.merchant_vat")}
-                </th>
-                <th className="py-3.5 px-3 text-end font-bold">
-                  {t("exp.col.amount_vat")}
-                </th>
-                <th className="py-3.5 ps-3 pe-5 text-end font-bold">
-                  {t("exp.col.status")}
-                </th>
+<th className="py-3.5 ps-5 pe-3 text-start font-bold">
+                    {t("exp.col.claim_id")}
+                  </th>
+                  <th className="py-3.5 px-3 text-start font-bold">
+                    {t("exp.col.category")}
+                  </th>
+                  <th className="py-3.5 px-3 text-start font-bold">
+                    {t("exp.col.merchant_vat")}
+                  </th>
+                  <th className="py-3.5 px-3 text-end font-bold">
+                    {t("exp.col.amount_vat")}
+                  </th>
+                  <th className="py-3.5 ps-3 pe-5 text-end font-bold">
+                    {t("exp.col.status")}
+                  </th>
+                  <th className="py-3.5 ps-3 pe-5 text-end font-bold">
+                    {t("exp.col.receipt")}
+                  </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-theme">
@@ -341,11 +348,16 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                       </div>
                     )}
                   </td>
+                  <td className="py-4 ps-3 pe-5 align-top text-end text-dynamic-xs">
+                    {claim.receiptHash && (
+                      <div>{t("exp.receipt.received")}: {claim.receiptFileName || "—"}</div>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filteredClaims.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-dynamic-sm text-muted">
+                  <td colSpan={6} className="px-5 py-8 text-center text-dynamic-sm text-muted">
                     {t("ui.no_results")}
                   </td>
                 </tr>
@@ -480,6 +492,43 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
                   }
                   className={`${formControlClassName} font-mono`}
                 />
+              </div>
+              <div>
+                <label className="block text-dynamic-xs font-bold text-muted pb-1">
+                  {t("exp.modal.receipt")}
+                </label>
+                <input
+                  aria-label={t("exp.modal.receipt")}
+                  type="file"
+                  accept="image/*, .pdf, .jpg, .png, .jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setNewClaimForm((p) => ({
+                      ...p,
+                      receiptFile: file
+                    }));
+                    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const byteArray = new Uint8Array(e.target!.result as ArrayBuffer);
+        crypto.subtle.digest("SHA-256", byteArray.buffer).then((hash) => {
+          const hexHash = Array.from(new Uint8Array(hash))
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+          setNewClaimForm((p) => ({ ...p, receiptHash: hexHash }));
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+                  }}
+                  className={`${formControlClassName} font-mono`}
+                />
+                {newClaimForm.receiptHash && (
+                  <div className="mt-2 text-dynamic-xs text-muted">
+                    <span>{t("exp.receipt.hash")}: {newClaimForm.receiptHash.slice(0, 16)}…</span>
+                  </div>
+                )}
               </div>
             </div>
 

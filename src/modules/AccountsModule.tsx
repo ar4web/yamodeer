@@ -183,6 +183,14 @@ export const AccountsModule: React.FC = () => {
     amountSar: 185000
   });
 
+  const vatTotals = useMemo(() => {
+    const outputVat = coa.find((a) => a.code === "210501")?.creditSar ?? 0;
+    const inputVat = coa.find((a) => a.code === "110402")?.creditSar ?? 0;
+    const gosi = coa.find((a) => a.code === "210204")?.creditSar ?? 0;
+    const eosb = coa.find((a) => a.code === "220101")?.creditSar ?? 0;
+    return { outputVat, inputVat, gosi, eosb, netVat: outputVat - inputVat };
+  }, [coa]);
+
   const totals = useMemo(() => {
     const assets = coa
       .filter((a) => a.type === "ASSET")
@@ -381,13 +389,13 @@ export const AccountsModule: React.FC = () => {
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.output")}</span>
                 <strong className="text-warning-text">
-                  {formatCurrencySAR(412500)}
+                  {formatCurrencySAR(vatTotals.outputVat)}
                 </strong>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.input")}</span>
                 <strong className="text-success-text">
-                  - {formatCurrencySAR(174000)}
+                  - {formatCurrencySAR(vatTotals.inputVat)}
                 </strong>
               </div>
               <div className="flex justify-between p-4 rounded-xl bg-primary-soft border border-primary">
@@ -395,7 +403,7 @@ export const AccountsModule: React.FC = () => {
                   {t("acc.vat.net")}
                 </span>
                 <strong className="text-primary-text">
-                  {formatCurrencySAR(238500)}
+                  {formatCurrencySAR(vatTotals.netVat)}
                 </strong>
               </div>
             </div>
@@ -411,11 +419,11 @@ export const AccountsModule: React.FC = () => {
             <div className="space-y-2.5 font-mono text-dynamic-sm">
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.gosi")}</span>
-                <strong>{formatCurrencySAR(384920)}</strong>
+                <strong>{formatCurrencySAR(vatTotals.gosi)}</strong>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-surface-elevated">
                 <span>{t("acc.vat.eosb")}</span>
-                <strong>{formatCurrencySAR(2940000)}</strong>
+                <strong>{formatCurrencySAR(vatTotals.eosb)}</strong>
               </div>
             </div>
           </div>
