@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Info, SlidersHorizontal, X } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { useWorkspaceToolbarTargets } from "@/components/WorkspaceToolbar";
 
 export type MetricTone = "primary" | "accent" | "success" | "warning" | "danger" | "neutral";
 
@@ -282,10 +283,11 @@ export const useModalFocus = (open: boolean, onClose: () => void) => {
 
 export interface PageHeaderProps {
   eyebrow?: React.ReactNode;
-  title: string;
+  title?: string;
   titleAccessory?: React.ReactNode;
   meta?: React.ReactNode;
   actions?: React.ReactNode;
+  helper?: React.ReactNode;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -293,27 +295,100 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   titleAccessory,
   meta,
-  actions
+  actions,
+  helper
 }) => {
   const { t } = useLanguage();
+  const targets = useWorkspaceToolbarTargets();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [portalActive, setPortalActive] = useState(false);
+  const hasHeading = Boolean(title || titleAccessory || eyebrow);
   const hasToolbar = Boolean(meta || actions);
+  const hasHelper = Boolean(helper);
 
-  return (
-      <div className="flex flex-col gap-4 pb-2 xl:flex-row xl:items-center xl:justify-between">
-      <div className="flex min-w-0 flex-col items-start gap-1.5 border-s-2 border-accent ps-3 xl:min-w-[13rem] xl:flex-1">
-        {eyebrow && <p className="text-dynamic-xs font-semibold tracking-wide text-muted">{eyebrow}</p>}
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <h1 className="min-w-0 break-words text-dynamic-xl font-semibold leading-tight text-foreground">
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host || !targets?.headingNode) {
+      setPortalActive(false);
+      return;
+    }
+    const sync = () => {
+      setPortalActive(!host.closest("[hidden]"));
+    };
+    sync();
+    const panel = host.closest("[role='tabpanel']");
+    if (!panel) return;
+    const observer = new MutationObserver(sync);
+    observer.observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+    return () => observer.disconnect();
+  }, [targets?.headingNode]);
+
+  const claimHeading = targets?.claimHeading;
+  const releaseHeading = targets?.releaseHeading;
+  const claimHelper = targets?.claimHelper;
+  const releaseHelper = targets?.releaseHelper;
+  useLayoutEffect(() => {
+    if (!portalActive || !title || !claimHeading || !releaseHeading) return;
+    claimHeading();
+    return () => releaseHeading();
+  }, [claimHeading, portalActive, releaseHeading, title]);
+  useLayoutEffect(() => {
+    if (!portalActive || !hasHelper || !claimHelper || !releaseHelper) return;
+    claimHelper();
+    return () => releaseHelper();
+  }, [claimHelper, hasHelper, portalActive, releaseHelper]);
+
+  const heading = (
+    <div className="flex min-w-0 flex-col items-start gap-1.5 border-s-2 border-accent ps-3">
+      {eyebrow && <p className="text-dynamic-xs font-semibold tracking-wide text-muted">{eyebrow}</p>}
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        {title ? (
+          <h1 className="min-w-0 break-words text-dynamic-lg font-semibold leading-tight text-foreground">
             {title}
           </h1>
-          {titleAccessory}
-        </div>
+        ) : null}
+        {titleAccessory}
       </div>
+    </div>
+  );
+
+  const tools = hasToolbar ? (
+    <>
+      {meta}
+      {actions}
+    </>
+  ) : null;
+
+  if (targets) {
+    return (
+      <div ref={hostRef} className="contents">
+        {portalActive && targets.headingNode && hasHeading ? createPortal(heading, targets.headingNode) : null}
+        {portalActive && tools && targets.toolsNode ? createPortal(tools, targets.toolsNode) : null}
+        {portalActive && helper && targets.helperNode ? createPortal(helper, targets.helperNode) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={hostRef} className="flex flex-col gap-4 pb-2 xl:flex-row xl:items-center xl:justify-between">
+      {hasHeading && (
+        <div className="flex min-w-0 flex-col items-start gap-1.5 border-s-2 border-accent ps-3 xl:min-w-[13rem] xl:flex-1">
+          {eyebrow && <p className="text-dynamic-xs font-semibold tracking-wide text-muted">{eyebrow}</p>}
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            {title ? (
+              <h1 className="min-w-0 break-words text-dynamic-xl font-semibold leading-tight text-foreground">
+                {title}
+              </h1>
+            ) : null}
+            {titleAccessory}
+          </div>
+        </div>
+      )}
       {hasToolbar && (
         <div
           role="toolbar"
           aria-label={t("ui.page_tools")}
-          className="flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[70%] xl:shrink-0 xl:justify-end"
+          className="ms-auto flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[70%] xl:shrink-0 xl:justify-end"
         >
           {meta}
           {actions}

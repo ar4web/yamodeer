@@ -38,7 +38,7 @@ import {
   NitaqatBand,
   EmployeeStatus
 } from "@/data/mockBlueprints";
-import { dangerButtonClass, DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, HorizontalBarChart, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, ResponsiveFilterDrawer, SegmentedTabs, successButtonClass, surfaceClassName, TabPanel, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
+import { dangerButtonClass, DataTableFrame, FilterDrawerTrigger, formControlClassName, HorizontalBarChart, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, ResponsiveFilterDrawer, SegmentedTabs, successButtonClass, surfaceClassName, TabPanel, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
 import {
   EMPLOYEE_IMPORT_COLUMNS,
   buildEmployeeImportPreview,
@@ -484,53 +484,49 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         title={t("emp.header.title")}
         
         actions={(
-          <div className="flex w-full flex-wrap items-center justify-end gap-2">
-            {visibleTab === "directory" && (
-              <FilterDrawerTrigger
-                label={t("ui.filters")}
-                controls="employee-directory-filters"
-                expanded={filterDrawerOpen}
-                activeCount={(deptFilter === "ALL" ? 0 : 1) + (statusFilter === "ALL" ? 0 : 1) + (expiryFilter === "ALL" ? 0 : 1)}
-                onClick={() => setFilterDrawerOpen(true)}
-                className="md:hidden"
-              />
-            )}
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={employeeActionsOpen}
-              onClick={openEmployeeActions}
-              className={primaryButtonClass}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              <span>{t("emp.actions.open")}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={employeeActionsOpen}
+            onClick={openEmployeeActions}
+            className={primaryButtonClass}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span>{t("emp.actions.open")}</span>
+          </button>
         )}
+        helper={visibleTab === "directory" ? (
+          <div className="space-y-3">
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("emp.filter.all_depts")}</span>
+              <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className={`${formControlClassName} h-11`}>
+                <option value="ALL">{t("emp.filter.all_depts")}</option>
+                <option value="HR_GOV">{t("dept.HR_GOV")}</option>
+                <option value="FINTECH">{t("dept.FINTECH")}</option>
+                <option value="PAYROLL">{t("dept.PAYROLL")}</option>
+                <option value="PROCURE">{t("dept.PROCURE")}</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("emp.filter.all_status")}</span>
+              <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className={`${formControlClassName} h-11`}>
+                <option value="ALL">{t("emp.filter.all_status")}</option>
+                <option value="ACTIVE">{t("emp.status.ACTIVE")}</option>
+                <option value="ON_LEAVE">{t("emp.status.ON_LEAVE")}</option>
+                <option value="SUSPENDED">{t("emp.status.SUSPENDED")}</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("emp.filter.all_expiry")}</span>
+              <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className={`${formControlClassName} h-11`}>
+                <option value="ALL">{t("emp.filter.all_expiry")}</option>
+                <option value="EXPIRING_90">{t("emp.filter.expiring_90")}</option>
+                <option value="CRITICAL_30">{t("emp.filter.critical_30")}</option>
+              </select>
+            </label>
+          </div>
+        ) : undefined}
       />
-
-      {visibleTab === "directory" && (
-        <div className="hidden w-full flex-wrap items-center justify-end gap-2 xl:flex">
-          <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
-            <option value="ALL">{t("emp.filter.all_depts")}</option>
-            <option value="HR_GOV">{t("dept.HR_GOV")}</option>
-            <option value="FINTECH">{t("dept.FINTECH")}</option>
-            <option value="PAYROLL">{t("dept.PAYROLL")}</option>
-            <option value="PROCURE">{t("dept.PROCURE")}</option>
-          </select>
-          <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
-            <option value="ALL">{t("emp.filter.all_status")}</option>
-            <option value="ACTIVE">{t("emp.status.ACTIVE")}</option>
-            <option value="ON_LEAVE">{t("emp.status.ON_LEAVE")}</option>
-            <option value="SUSPENDED">{t("emp.status.SUSPENDED")}</option>
-          </select>
-          <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
-            <option value="ALL">{t("emp.filter.all_expiry")}</option>
-            <option value="EXPIRING_90">{t("emp.filter.expiring_90")}</option>
-            <option value="CRITICAL_30">{t("emp.filter.critical_30")}</option>
-          </select>
-        </div>
-      )}
 
       <ResponsiveFilterDrawer
         id="employee-directory-filters"
@@ -582,16 +578,38 @@ export const EmployeeModule: React.FC<EmployeeModuleProps> = ({
         </label>
       </ResponsiveFilterDrawer>
       {visibleTab === "directory" && (
-        <FilterDrawerEdgeTrigger
-          label={t("ui.filters")}
-          controls="employee-directory-filters"
-          expanded={filterDrawerOpen}
-          activeCount={(deptFilter === "ALL" ? 0 : 1) + (statusFilter === "ALL" ? 0 : 1) + (expiryFilter === "ALL" ? 0 : 1)}
-          onClick={() => setFilterDrawerOpen(true)}
-          placement="end"
-          className="hidden md:flex"
-        />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <FilterDrawerTrigger
+            label={t("ui.filters")}
+            controls="employee-directory-filters"
+            expanded={filterDrawerOpen}
+            activeCount={(deptFilter === "ALL" ? 0 : 1) + (statusFilter === "ALL" ? 0 : 1) + (expiryFilter === "ALL" ? 0 : 1)}
+            onClick={() => setFilterDrawerOpen(true)}
+            className="xl:hidden"
+          />
+          <div className="hidden flex-wrap items-center justify-end gap-2 xl:flex">
+            <select aria-label={t("emp.filter.all_depts")} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
+              <option value="ALL">{t("emp.filter.all_depts")}</option>
+              <option value="HR_GOV">{t("dept.HR_GOV")}</option>
+              <option value="FINTECH">{t("dept.FINTECH")}</option>
+              <option value="PAYROLL">{t("dept.PAYROLL")}</option>
+              <option value="PROCURE">{t("dept.PROCURE")}</option>
+            </select>
+            <select aria-label={t("emp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | EmployeeStatus)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
+              <option value="ALL">{t("emp.filter.all_status")}</option>
+              <option value="ACTIVE">{t("emp.status.ACTIVE")}</option>
+              <option value="ON_LEAVE">{t("emp.status.ON_LEAVE")}</option>
+              <option value="SUSPENDED">{t("emp.status.SUSPENDED")}</option>
+            </select>
+            <select aria-label={t("emp.filter.all_expiry")} value={expiryFilter} onChange={(event) => setExpiryFilter(event.target.value as "ALL" | "EXPIRING_90" | "CRITICAL_30")} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
+              <option value="ALL">{t("emp.filter.all_expiry")}</option>
+              <option value="EXPIRING_90">{t("emp.filter.expiring_90")}</option>
+              <option value="CRITICAL_30">{t("emp.filter.critical_30")}</option>
+            </select>
+          </div>
+        </div>
       )}
+
 
       <SegmentedTabs
         id="people"

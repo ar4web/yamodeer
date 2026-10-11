@@ -21,7 +21,7 @@ import {
   ZatcaPhase2InvoiceBlueprint,
   buildZatcaTlvHexArray
 } from "@/data/mockBlueprints";
-import { DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, secondaryButtonClass, SegmentedTabs, surfaceClassName, TabPanel, useModalFocus } from "@/components/DesignSystem";
+import { DataTableFrame, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, secondaryButtonClass, SegmentedTabs, surfaceClassName, TabPanel, useModalFocus } from "@/components/DesignSystem";
 
 interface VendorModuleProps {
   vendors: VendorContractorBlueprint[];
@@ -278,36 +278,58 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
                 { value: "onboard", label: t("ven.tab.onboard"), icon: <PlusCircle className="h-4 w-4" /> }
               ]}
             />
-            {activeTab === "ledger" && (
-              <>
-                <FilterDrawerTrigger
-                  label={t("ui.filters")}
-                  controls="vendor-ledger-filters"
-                  expanded={filterDrawerOpen}
-                  activeCount={statusFilter === "ALL" ? 0 : 1}
-                  onClick={() => setFilterDrawerOpen(true)}
-                  className="md:hidden"
-                />
-                <div className="hidden items-center gap-2 xl:flex">
-                  <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
-                    <option value="ALL">{t("ven.filter.all_status")}</option>
-                    <option value="VERIFIED">{t("ven.status.VERIFIED")}</option>
-                    <option value="EXPIRING_CR">{t("ven.status.EXPIRING_CR")}</option>
-                    <option value="AUDIT_HOLD">{t("ven.status.AUDIT_HOLD")}</option>
-                  </select>
-                  <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
-                    <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
-                    <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
-                    <option value="VALUE_DESC">{t("ui.sort.amount_desc")}</option>
-                  </select>
-                </div>
-              </>
-            )}
           </div>
         )}
+        helper={activeTab === "ledger" ? (
+          <div className="space-y-3">
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("ven.filter.all_status")}</span>
+              <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${formControlClassName} h-11`}>
+                <option value="ALL">{t("ven.filter.all_status")}</option>
+                <option value="VERIFIED">{t("ven.status.VERIFIED")}</option>
+                <option value="EXPIRING_CR">{t("ven.status.EXPIRING_CR")}</option>
+                <option value="AUDIT_HOLD">{t("ven.status.AUDIT_HOLD")}</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("ui.sort_by")}</span>
+              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${formControlClassName} h-11`}>
+                <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+                <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
+                <option value="VALUE_DESC">{t("ui.sort.amount_desc")}</option>
+              </select>
+            </label>
+          </div>
+        ) : undefined}
       />
 
       <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
+
+      {activeTab === "ledger" && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <FilterDrawerTrigger
+            label={t("ui.filters")}
+            controls="vendor-ledger-filters"
+            expanded={filterDrawerOpen}
+            activeCount={statusFilter === "ALL" ? 0 : 1}
+            onClick={() => setFilterDrawerOpen(true)}
+            className="md:hidden"
+          />
+          <div className="hidden items-center gap-2 xl:flex">
+            <select aria-label={t("ven.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
+              <option value="ALL">{t("ven.filter.all_status")}</option>
+              <option value="VERIFIED">{t("ven.status.VERIFIED")}</option>
+              <option value="EXPIRING_CR">{t("ven.status.EXPIRING_CR")}</option>
+              <option value="AUDIT_HOLD">{t("ven.status.AUDIT_HOLD")}</option>
+            </select>
+            <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-40 text-dynamic-xs`}>
+              <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+              <option value="EXPIRY_ASC">{t("ui.sort.expiry_asc")}</option>
+              <option value="VALUE_DESC">{t("ui.sort.amount_desc")}</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       <ResponsiveFilterDrawer
         id="vendor-ledger-filters"
@@ -337,17 +359,7 @@ export const VendorModule: React.FC<VendorModuleProps> = ({
           </select>
         </label>
       </ResponsiveFilterDrawer>
-      {activeTab === "ledger" && (
-        <FilterDrawerEdgeTrigger
-          label={t("ui.filters")}
-          controls="vendor-ledger-filters"
-          expanded={filterDrawerOpen}
-          activeCount={statusFilter === "ALL" ? 0 : 1}
-          onClick={() => setFilterDrawerOpen(true)}
-          placement="end"
-          className="hidden md:flex"
-        />
-      )}
+
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={t("ven.kpi.active_vendors")} value={vendors.length} icon={<Briefcase className="h-5 w-5" />} tone="primary" />

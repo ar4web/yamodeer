@@ -14,7 +14,7 @@ import { useOperations } from "@/context/OperationsContext";
 import { ExpenseCategory, ExpenseClaimRecord, ExpenseStatus } from "@/data/workspaceBlueprints";
 import { useCurrentRole } from "@/context/RBACGeofenceContext";
 import { EmployeeRecordBlueprint } from "@/data/mockBlueprints";
-import { dangerButtonClass, DataTableFrame, FilterDrawerEdgeTrigger, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, successButtonClass, useModalFocus } from "@/components/DesignSystem";
+import { dangerButtonClass, DataTableFrame, FilterDrawerTrigger, formControlClassName, iconButtonClass, inlineFormControlClassName, MetricCard, PageHeader, primaryButtonClass, PrototypeNotice, ResponsiveFilterDrawer, successButtonClass, useModalFocus } from "@/components/DesignSystem";
 
 export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; globalSearchQuery: string }> = ({ employees, globalSearchQuery }) => {
   const { t, localize, formatCurrencySAR } = useLanguage();
@@ -127,38 +127,61 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
         title={t("exp.header.title")}
         
         actions={(
-          <div className="flex w-full flex-wrap items-center justify-end gap-2">
-            <FilterDrawerTrigger
-              label={t("ui.filters")}
-              controls="expense-claim-filters"
-              expanded={filterDrawerOpen}
-              activeCount={statusFilter === "ALL" ? 0 : 1}
-              onClick={() => setFilterDrawerOpen(true)}
-              className="md:hidden"
-            />
-            <div className="hidden items-center gap-2 xl:flex">
-              <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
+          <button type="button" onClick={() => setModalOpen(true)} className={primaryButtonClass}>
+            <PlusCircle className="h-4 w-4" />
+            <span>{t("exp.btn.new_claim")}</span>
+          </button>
+        )}
+        helper={(
+          <div className="space-y-3">
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("exp.filter.all_status")}</span>
+              <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${formControlClassName} h-11`}>
                 <option value="ALL">{t("exp.filter.all_status")}</option>
                 <option value="PENDING">{t("exp.status.PENDING")}</option>
                 <option value="APPROVED">{t("exp.status.APPROVED")}</option>
                 <option value="REIMBURSED">{t("exp.status.REIMBURSED")}</option>
                 <option value="REJECTED">{t("exp.status.REJECTED")}</option>
               </select>
-              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("ui.sort_by")}</span>
+              <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${formControlClassName} h-11`}>
                 <option value="DATE_DESC">{t("ui.sort.date_desc")}</option>
                 <option value="AMOUNT_DESC">{t("ui.sort.amount_desc")}</option>
                 <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
               </select>
-            </div>
-            <button type="button" onClick={() => setModalOpen(true)} className={primaryButtonClass}>
-              <PlusCircle className="h-4 w-4" />
-              <span>{t("exp.btn.new_claim")}</span>
-            </button>
+            </label>
           </div>
         )}
       />
 
       <PrototypeNotice label={t("app.badge.demo_data")}>{t("finance.data_notice")}</PrototypeNotice>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <FilterDrawerTrigger
+          label={t("ui.filters")}
+          controls="expense-claim-filters"
+          expanded={filterDrawerOpen}
+          activeCount={statusFilter === "ALL" ? 0 : 1}
+          onClick={() => setFilterDrawerOpen(true)}
+          className="md:hidden"
+        />
+        <div className="hidden items-center gap-2 xl:flex">
+          <select aria-label={t("exp.filter.all_status")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
+            <option value="ALL">{t("exp.filter.all_status")}</option>
+            <option value="PENDING">{t("exp.status.PENDING")}</option>
+            <option value="APPROVED">{t("exp.status.APPROVED")}</option>
+            <option value="REIMBURSED">{t("exp.status.REIMBURSED")}</option>
+            <option value="REJECTED">{t("exp.status.REJECTED")}</option>
+          </select>
+          <select aria-label={t("ui.sort_by")} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} min-w-36 text-dynamic-xs`}>
+            <option value="DATE_DESC">{t("ui.sort.date_desc")}</option>
+            <option value="AMOUNT_DESC">{t("ui.sort.amount_desc")}</option>
+            <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+          </select>
+        </div>
+      </div>
 
       <ResponsiveFilterDrawer
         id="expense-claim-filters"
@@ -189,15 +212,7 @@ export const ExpenseModule: React.FC<{ employees: EmployeeRecordBlueprint[]; glo
           </select>
         </label>
       </ResponsiveFilterDrawer>
-      <FilterDrawerEdgeTrigger
-        label={t("ui.filters")}
-        controls="expense-claim-filters"
-        expanded={filterDrawerOpen}
-        activeCount={statusFilter === "ALL" ? 0 : 1}
-        onClick={() => setFilterDrawerOpen(true)}
-        placement="end"
-        className="hidden md:flex"
-      />
+
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard

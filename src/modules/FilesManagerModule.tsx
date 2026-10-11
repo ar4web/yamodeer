@@ -10,13 +10,11 @@ import {
   Grid2X2,
   List,
   Lock,
-  Search,
-  SlidersHorizontal,
   Upload,
   X
 } from "lucide-react";
 import { useLanguage, BilingualText } from "@/context/LanguageContext";
-import { DataTableFrame, iconButtonClass, inlineFormControlClassName, PageHeader, PrototypeNotice, primaryButtonClass, secondaryButtonClass, surfaceClassName } from "@/components/DesignSystem";
+import { DataTableFrame, FilterDrawerTrigger, iconButtonClass, inlineFormControlClassName, PageHeader, PrototypeNotice, primaryButtonClass, ResponsiveFilterDrawer, secondaryButtonClass, surfaceClassName } from "@/components/DesignSystem";
 import { DocMakerModule } from "@/modules/DocMakerModule";
 import { getLocalISODate } from "@/services/dateUtils";
 
@@ -178,7 +176,6 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeFolder, setActiveFolder] = useState<"ALL" | VaultFolderKey>("ALL");
   const [selectedFileId, setSelectedFileId] = useState<string | null>(files[0]?.id ?? null);
-  const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"UPDATED_DESC" | "NAME_ASC" | "SIZE_DESC">("UPDATED_DESC");
   const [tierFilter, setTierFilter] = useState<VaultTierFilter>("ALL");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -188,7 +185,7 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
   const [documentSavedNotice, setDocumentSavedNotice] = useState(false);
 
   const filteredFiles = useMemo(() => {
-    const queries = [globalSearchQuery, localSearchQuery]
+    const queries = [globalSearchQuery]
       .map((query) => query.trim().toLowerCase())
       .filter(Boolean);
     const matched = files.filter((file) => {
@@ -206,7 +203,7 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
       if (sortBy === "SIZE_DESC") return sizeInKb(right.sizeLabel) - sizeInKb(left.sizeLabel);
       return right.updatedAt.localeCompare(left.updatedAt);
     });
-  }, [files, activeFolder, globalSearchQuery, localSearchQuery, sortBy, tierFilter]);
+  }, [files, activeFolder, globalSearchQuery, sortBy, tierFilter]);
 
   const selectedItem = filteredFiles.find((file) => file.id === selectedFileId) ?? filteredFiles[0] ?? null;
 
@@ -291,8 +288,8 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
   const moveFolderFocus = (event: React.KeyboardEvent<HTMLButtonElement>, currentFolder: "ALL" | VaultFolderKey) => {
     const currentIndex = VAULT_FOLDERS.indexOf(currentFolder);
     let nextIndex: number | undefined;
-    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % VAULT_FOLDERS.length;
-    else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + VAULT_FOLDERS.length) % VAULT_FOLDERS.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") nextIndex = (currentIndex + 1) % VAULT_FOLDERS.length;
+    else if (event.key === "ArrowUp" || event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + VAULT_FOLDERS.length) % VAULT_FOLDERS.length;
     else if (event.key === "Home") nextIndex = 0;
     else if (event.key === "End") nextIndex = VAULT_FOLDERS.length - 1;
     if (nextIndex === undefined) return;
@@ -390,48 +387,7 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
             eyebrow={t("nav.group.documents")}
             title={t("file.header.title")}
             actions={(
-              <div className="flex w-full flex-wrap items-center justify-end gap-2">
-                <div className="relative min-w-[12rem] flex-1 sm:flex-none">
-                  <Search aria-hidden="true" className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <input
-                    type="search"
-                    value={localSearchQuery}
-                    onChange={(event) => setLocalSearchQuery(event.target.value)}
-                    placeholder={t("file.search.placeholder")}
-                    aria-label={t("file.search.label")}
-                    className={`${inlineFormControlClassName} w-full ps-9 sm:w-56`}
-                  />
-                </div>
-                <button
-                  type="button"
-                  aria-controls="files-filter-controls"
-                  aria-expanded={filtersOpen}
-                  onClick={() => setFiltersOpen((open) => !open)}
-                  className={secondaryButtonClass}
-                >
-                  <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-                  <span>{t("file.filter.button")}</span>
-                </button>
-                <div role="group" aria-label={t("file.view.label")} className="inline-flex items-center rounded-md border border-theme bg-surface-elevated p-1">
-                  <button
-                    type="button"
-                    aria-label={t("file.view.grid")}
-                    aria-pressed={viewMode === "GRID"}
-                    onClick={() => setViewMode("GRID")}
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "GRID" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
-                  >
-                    <Grid2X2 aria-hidden="true" className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t("file.view.list")}
-                    aria-pressed={viewMode === "LIST"}
-                    onClick={() => setViewMode("LIST")}
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "LIST" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
-                  >
-                    <List aria-hidden="true" className="h-4 w-4" />
-                  </button>
-                </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {canOpenDocMaker && (
                   <button type="button" onClick={() => openDocumentEditor("BLANK")} className={secondaryButtonClass}>
                     <FileText aria-hidden="true" className="h-4 w-4" />
@@ -443,6 +399,27 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
                   <Upload aria-hidden="true" className="h-4 w-4" />
                   <span>{t("file.btn.upload")}</span>
                 </button>
+              </div>
+            )}
+            helper={(
+              <div className="space-y-3">
+                <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                  <span>{t("file.filter.classification")}</span>
+                  <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value as VaultTierFilter)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                    <option value="ALL">{t("file.filter.all")}</option>
+                    <option value="PDPL_RESTRICTED">{t("file.tier.PDPL_RESTRICTED")}</option>
+                    <option value="STATUTORY_ARCHIVE">{t("file.tier.STATUTORY_ARCHIVE")}</option>
+                    <option value="B2B_CONFIDENTIAL">{t("file.tier.B2B_CONFIDENTIAL")}</option>
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                  <span>{t("ui.sort_by")}</span>
+                  <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                    <option value="UPDATED_DESC">{t("ui.sort.updated_desc")}</option>
+                    <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+                    <option value="SIZE_DESC">{t("ui.sort.size_desc")}</option>
+                  </select>
+                </label>
               </div>
             )}
           />
@@ -463,94 +440,123 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
             </div>
           )}
 
-          {filtersOpen && (
-            <section id="files-filter-controls" aria-label={t("file.filter.title")} className={`${surfaceClassName} grid grid-cols-1 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end`}>
-              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
-                <span>{t("file.filter.classification")}</span>
-                <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value as VaultTierFilter)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
-                  <option value="ALL">{t("file.filter.all")}</option>
-                  <option value="PDPL_RESTRICTED">{t("file.tier.PDPL_RESTRICTED")}</option>
-                  <option value="STATUTORY_ARCHIVE">{t("file.tier.STATUTORY_ARCHIVE")}</option>
-                  <option value="B2B_CONFIDENTIAL">{t("file.tier.B2B_CONFIDENTIAL")}</option>
-                </select>
-              </label>
-              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
-                <span>{t("ui.sort_by")}</span>
-                <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
-                  <option value="UPDATED_DESC">{t("ui.sort.updated_desc")}</option>
-                  <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
-                  <option value="SIZE_DESC">{t("ui.sort.size_desc")}</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setTierFilter("ALL");
-                  setSortBy("UPDATED_DESC");
-                  setLocalSearchQuery("");
-                  selectFolder("ALL");
-                }}
-                className={`${secondaryButtonClass} sm:mb-0.5`}
-              >
-                <X aria-hidden="true" className="h-4 w-4" />
-                <span>{t("file.filter.clear")}</span>
-              </button>
-            </section>
-          )}
+          <ResponsiveFilterDrawer
+            id="files-filter-controls"
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            onClear={() => {
+              setTierFilter("ALL");
+              setSortBy("UPDATED_DESC");
+              selectFolder("ALL");
+            }}
+            title={t("file.filter.title")}
+            closeLabel={t("ui.close")}
+            clearLabel={t("ui.clear_filters")}
+            doneLabel={t("ui.done")}
+          >
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("file.filter.classification")}</span>
+              <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value as VaultTierFilter)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                <option value="ALL">{t("file.filter.all")}</option>
+                <option value="PDPL_RESTRICTED">{t("file.tier.PDPL_RESTRICTED")}</option>
+                <option value="STATUTORY_ARCHIVE">{t("file.tier.STATUTORY_ARCHIVE")}</option>
+                <option value="B2B_CONFIDENTIAL">{t("file.tier.B2B_CONFIDENTIAL")}</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("ui.sort_by")}</span>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className={`${inlineFormControlClassName} text-dynamic-xs`}>
+                <option value="UPDATED_DESC">{t("ui.sort.updated_desc")}</option>
+                <option value="NAME_ASC">{t("ui.sort.name_asc")}</option>
+                <option value="SIZE_DESC">{t("ui.sort.size_desc")}</option>
+              </select>
+            </label>
+          </ResponsiveFilterDrawer>
         </>
       )}
 
-      <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] gap-2 min-[360px]:grid-cols-[3.75rem_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
-        <aside className="sticky top-4 max-h-[calc(100vh-2rem)] min-w-0 self-start overflow-y-auto" aria-labelledby="files-folders-heading">
-          <h2 id="files-folders-heading" className="sr-only sm:not-sr-only sm:mb-2 sm:text-dynamic-sm sm:font-semibold sm:text-muted">{t("file.section.folders")}</h2>
-          <p className="sr-only">{t("file.section.folders_note")}</p>
-          <div id="files-folder-tablist" role="tablist" aria-label={t("file.section.folders")} aria-orientation="vertical" className="flex min-w-0 flex-col items-stretch gap-1.5 border-e border-theme pe-1.5 sm:pe-2">
-            {VAULT_FOLDERS.map((folder) => {
-              const selected = activeFolder === folder;
-              const count = folder === "ALL" ? files.length : files.filter((file) => file.folder === folder).length;
-              const FolderIcon = folder === "ALL" ? FolderOpen : folder === "DOCMAKER" ? FileText : Folder;
-              return (
-                <button
-                  key={folder}
-                  id={`files-folder-${folder}-tab`}
-                  type="button"
-                  role="tab"
-                  aria-label={`${t(`file.folder.${folder}`)} (${count} ${t("ui.records")})`}
-                  title={t(`file.folder.${folder}`)}
-                  aria-selected={selected}
-                  aria-controls="files-folder-panel"
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => selectFolder(folder)}
-                  onKeyDown={(event) => moveFolderFocus(event, folder)}
-                  className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1 border-s-2 px-1 py-1.5 text-center text-dynamic-xs font-semibold leading-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:min-h-11 sm:flex-row sm:justify-start sm:gap-2.5 sm:px-3 sm:text-start sm:text-dynamic-sm ${
-                    selected ? "border-primary font-bold text-primary-text" : "border-transparent text-muted hover:bg-surface-elevated/60 hover:text-foreground"
-                  }`}
-                >
-                  <FolderIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
-                  <span className="sr-only min-w-0 break-words sm:not-sr-only">{t(`file.folder.${folder}`)}</span>
-                  <span className="hidden shrink-0 font-mono text-dynamic-xs text-muted sm:inline-flex">{count}</span>
-                </button>
-              );
-            })}
+      {documentEditorOpen ? (
+        <DocMakerModule
+          initialTemplateId={documentTemplateId}
+          onSaveToVault={saveDocumentToVault}
+          onReturnToFiles={() => setDocumentEditorOpen(false)}
+        />
+      ) : (
+        <div className="min-w-0 space-y-3">
+          <div aria-labelledby="files-folders-heading" className="min-w-0">
+            <h2 id="files-folders-heading" className="sr-only">{t("file.section.folders")}</h2>
+            <p className="sr-only">{t("file.section.folders_note")}</p>
+            <div id="files-folder-tablist" role="tablist" aria-label={t("file.section.folders")} aria-orientation="horizontal" className="flex min-w-0 gap-1 overflow-x-auto pb-1">
+              {VAULT_FOLDERS.map((folder) => {
+                const selected = activeFolder === folder;
+                const count = folder === "ALL" ? files.length : files.filter((file) => file.folder === folder).length;
+                const FolderIcon = folder === "ALL" ? FolderOpen : folder === "DOCMAKER" ? FileText : Folder;
+                return (
+                  <button
+                    key={folder}
+                    id={`files-folder-${folder}-tab`}
+                    type="button"
+                    role="tab"
+                    aria-label={`${t(`file.folder.${folder}`)} (${count} ${t("ui.records")})`}
+                    title={t(`file.folder.${folder}`)}
+                    aria-selected={selected}
+                    aria-controls="files-folder-panel"
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => selectFolder(folder)}
+                    onKeyDown={(event) => moveFolderFocus(event, folder)}
+                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-dynamic-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      selected ? "border-primary bg-primary-soft text-primary-text" : "border-theme bg-surface text-muted hover:bg-surface-elevated hover:text-foreground"
+                    }`}
+                  >
+                    <FolderIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                    <span>{t(`file.folder.${folder}`)}</span>
+                    <span className="font-mono text-dynamic-xs tabular-nums">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </aside>
 
-        <div key={`${activeFolder}-${documentEditorOpen ? "editor" : "files"}`} id="files-folder-panel" role="tabpanel" aria-labelledby={`files-folder-${activeFolder}-tab`} tabIndex={0} className="app-panel-enter min-w-0">
-          {documentEditorOpen ? (
-            <DocMakerModule
-              initialTemplateId={documentTemplateId}
-              onSaveToVault={saveDocumentToVault}
-              onReturnToFiles={() => setDocumentEditorOpen(false)}
-            />
-          ) : (
+          <div key={`${activeFolder}-files`} id="files-folder-panel" role="tabpanel" aria-labelledby={`files-folder-${activeFolder}-tab`} tabIndex={0} className="app-panel-enter min-w-0">
             <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-5">
-              <div className="min-w-0 space-y-5">
+              <div className="min-w-0 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme pb-2">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <h2 id="files-library-heading" className="text-dynamic-base font-bold text-foreground">{t("file.section.library")}</h2>
+                    <span className="text-dynamic-xs font-semibold tabular-nums text-muted">{filteredFiles.length} {t("ui.records")}</span>
+                  </div>
+                  <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+                    <div role="group" aria-label={t("file.view.label")} className="inline-flex items-center rounded-md border border-theme bg-surface-elevated p-1">
+                      <button
+                        type="button"
+                        aria-label={t("file.view.grid")}
+                        aria-pressed={viewMode === "GRID"}
+                        onClick={() => setViewMode("GRID")}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "GRID" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
+                      >
+                        <Grid2X2 aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("file.view.list")}
+                        aria-pressed={viewMode === "LIST"}
+                        onClick={() => setViewMode("LIST")}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${viewMode === "LIST" ? "bg-primary-soft text-primary-text" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
+                      >
+                        <List aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <FilterDrawerTrigger
+                      label={t("file.filter.button")}
+                      controls="files-filter-controls"
+                      expanded={filtersOpen}
+                      activeCount={tierFilter === "ALL" ? 0 : 1}
+                      onClick={() => setFiltersOpen((open) => !open)}
+                    />
+                  </div>
+                </div>
                 {viewMode === "GRID" ? (
                   <section aria-labelledby="files-library-heading" className="space-y-3">
-                    <div className="flex flex-wrap items-end justify-between gap-2 border-b border-theme pb-2">
-                      <h2 id="files-library-heading" className="text-dynamic-base font-bold text-foreground">{t("file.section.library")}</h2>
-                      <span className="text-dynamic-xs font-semibold tabular-nums text-muted">{filteredFiles.length} {t("ui.records")}</span>
-                    </div>
                     {filteredFiles.length ? (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
                         {filteredFiles.map(renderFileCard)}
@@ -607,7 +613,7 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
                 )}
               </div>
 
-              <aside aria-labelledby="files-preview-heading" className={`${surfaceClassName} h-fit min-w-0 p-4 xl:sticky xl:top-20 xl:self-start`}>
+              <aside aria-labelledby="files-preview-heading" className={`hidden xl:block ${surfaceClassName} h-fit min-w-0 p-4 xl:sticky xl:top-24 xl:self-start`}>
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-theme pb-3">
                   <div className="min-w-0 flex-1 basis-24">
                     <h2 id="files-preview-heading" className="text-dynamic-base font-bold text-foreground">{t("file.preview.title")}</h2>
@@ -661,9 +667,9 @@ export const FilesManagerModule: React.FC<FilesManagerModuleProps> = ({
                 )}
               </aside>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

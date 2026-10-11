@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   BookOpen,
@@ -20,9 +20,9 @@ import {
   WorkTaskStatus,
   useWorkHub
 } from "@/context/WorkHubContext";
+import { ContextMenu } from "@/components/ContextMenu";
 import {
   dangerButtonClass,
-  FilterDrawerEdgeTrigger,
   FilterDrawerTrigger,
   formControlClassName,
   iconButtonBaseClass,
@@ -134,6 +134,8 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
   const [taskFilter, setTaskFilter] = useState<"ALL" | "OPEN" | "TODAY" | "COMPLETED">("ALL");
   const [taskSortBy, setTaskSortBy] = useState<"DUE_ASC" | "TITLE_ASC">("DUE_ASC");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -375,10 +377,64 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
   };
 
   const activeTaskFilterCount = taskFilter === "ALL" ? 0 : 1;
-  const pageAction = (
-    <div className={`flex flex-wrap items-center justify-end gap-2 ${embedded ? "max-w-full" : "w-full"}`}>
+  const pageAction = activeTab === "tasks" ? (
+    <button type="button" onClick={openNewTask} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_task")}</span></button>
+  ) : activeTab === "reminders" ? (
+    <button type="button" onClick={openNewReminder} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_reminder")}</span></button>
+  ) : (
+    <button type="button" onClick={openNewNotebook} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_notebook")}</span></button>
+  );
+
+  const storageStatusBadge = (
+    <span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${storageStatus === "POSTGRES" ? "bg-success-soft text-success-text" : storageStatus === "CONNECTING" ? "bg-warning-soft text-warning-text" : "bg-surface-elevated text-muted"}`}>
+      {t(storageStatusKey)}
+    </span>
+  );
+  const pageMeta = (
+    <div className="flex flex-wrap gap-1.5">
+      {!embedded && <span className="rounded-full bg-surface-elevated px-2.5 py-1 text-dynamic-xs font-semibold text-muted">{t("app.badge.pdpl")}</span>}
+      {storageStatusBadge}
+    </div>
+  );
+
+  const openContextMenu = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, textarea, select, [contenteditable='true'], a, button")) return;
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  };
+
+  return (
+    <div className="space-y-4" onContextMenu={openContextMenu}>
+      <PageHeader
+        eyebrow={embedded ? undefined : t("nav.group.productivity")}
+        title={embedded ? undefined : t("workhub.header.title")}
+        meta={pageMeta}
+        actions={pageAction}
+        helper={activeTab === "tasks" ? (
+          <div className="space-y-3">
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("workhub.task.filter_label")}</span>
+              <select aria-label={t("workhub.task.filter_label")} value={taskFilter} onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)} className={`${formControlClassName} h-11`}>
+                <option value="ALL">{t("workhub.task.filter.all")}</option>
+                <option value="OPEN">{t("workhub.task.filter.open")}</option>
+                <option value="TODAY">{t("workhub.task.filter.today")}</option>
+                <option value="COMPLETED">{t("workhub.task.filter.completed")}</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+              <span>{t("ui.sort_by")}</span>
+              <select aria-label={t("ui.sort_by")} value={taskSortBy} onChange={(event) => setTaskSortBy(event.target.value as typeof taskSortBy)} className={`${formControlClassName} h-11`}>
+                <option value="DUE_ASC">{t("ui.sort.due_asc")}</option>
+                <option value="TITLE_ASC">{t("ui.sort.name_asc")}</option>
+              </select>
+            </label>
+          </div>
+        ) : undefined}
+      />
+
       {activeTab === "tasks" && (
-        <>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <FilterDrawerTrigger
             label={t("ui.filters")}
             controls="workhub-task-filters"
@@ -399,44 +455,7 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
               <option value="TITLE_ASC">{t("ui.sort.name_asc")}</option>
             </select>
           </div>
-        </>
-      )}
-      {activeTab === "tasks" ? (
-        <button type="button" onClick={openNewTask} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_task")}</span></button>
-      ) : activeTab === "reminders" ? (
-        <button type="button" onClick={openNewReminder} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_reminder")}</span></button>
-      ) : (
-        <button type="button" onClick={openNewNotebook} className={primaryButtonClass}><PlusCircle className="h-4 w-4" /><span>{t("workhub.button.new_notebook")}</span></button>
-      )}
-    </div>
-  );
-
-  const storageStatusBadge = (
-    <span className={`rounded-full px-2.5 py-1 text-dynamic-xs font-semibold ${storageStatus === "POSTGRES" ? "bg-success-soft text-success-text" : storageStatus === "CONNECTING" ? "bg-warning-soft text-warning-text" : "bg-surface-elevated text-muted"}`}>
-      {t(storageStatusKey)}
-    </span>
-  );
-  const pageMeta = (
-    <div className="flex flex-wrap gap-1.5">
-      {!embedded && <span className="rounded-full bg-surface-elevated px-2.5 py-1 text-dynamic-xs font-semibold text-muted">{t("app.badge.pdpl")}</span>}
-      {storageStatusBadge}
-    </div>
-  );
-
-  return (
-    <div className="space-y-4">
-      {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {pageMeta}
-          {pageAction}
         </div>
-      ) : (
-        <PageHeader
-          eyebrow={t("nav.group.productivity")}
-          title={t("workhub.header.title")}
-          meta={pageMeta}
-          actions={pageAction}
-        />
       )}
 
       <ResponsiveFilterDrawer
@@ -466,17 +485,43 @@ export const WorkHubModule: React.FC<{ globalSearchQuery: string; embedded?: boo
           </select>
         </label>
       </ResponsiveFilterDrawer>
-      {activeTab === "tasks" && (
-        <FilterDrawerEdgeTrigger
-          label={t("ui.filters")}
-          controls="workhub-task-filters"
-          expanded={filterDrawerOpen}
-          activeCount={activeTaskFilterCount}
-          onClick={() => setFilterDrawerOpen(true)}
-          placement="end"
-          className="hidden md:flex"
-        />
-      )}
+      <ContextMenu
+        open={Boolean(contextMenu)}
+        x={contextMenu?.x ?? 0}
+        y={contextMenu?.y ?? 0}
+        label={t("ui.context_menu")}
+        onClose={closeContextMenu}
+        groups={
+          activeTab === "tasks"
+            ? [
+                {
+                  id: "filter",
+                  label: t("workhub.task.filter_label"),
+                  items: [
+                    { id: "ALL", label: t("workhub.task.filter.all"), checked: taskFilter === "ALL", onSelect: () => setTaskFilter("ALL") },
+                    { id: "OPEN", label: t("workhub.task.filter.open"), checked: taskFilter === "OPEN", onSelect: () => setTaskFilter("OPEN") },
+                    { id: "TODAY", label: t("workhub.task.filter.today"), checked: taskFilter === "TODAY", onSelect: () => setTaskFilter("TODAY") },
+                    { id: "COMPLETED", label: t("workhub.task.filter.completed"), checked: taskFilter === "COMPLETED", onSelect: () => setTaskFilter("COMPLETED") }
+                  ]
+                },
+                {
+                  id: "sort",
+                  label: t("ui.sort_by"),
+                  items: [
+                    { id: "DUE_ASC", label: t("ui.sort.due_asc"), checked: taskSortBy === "DUE_ASC", onSelect: () => setTaskSortBy("DUE_ASC") },
+                    { id: "TITLE_ASC", label: t("ui.sort.name_asc"), checked: taskSortBy === "TITLE_ASC", onSelect: () => setTaskSortBy("TITLE_ASC") }
+                  ]
+                },
+                {
+                  id: "actions",
+                  items: [{ id: "new-task", label: t("workhub.button.new_task"), onSelect: openNewTask }]
+                }
+              ]
+            : activeTab === "reminders"
+              ? [{ id: "actions", items: [{ id: "new-reminder", label: t("workhub.button.new_reminder"), onSelect: openNewReminder }] }]
+              : [{ id: "actions", items: [{ id: "new-notebook", label: t("workhub.button.new_notebook"), onSelect: openNewNotebook }] }]
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-theme bg-surface p-3 text-dynamic-xs text-muted">
         <BookOpen className="h-4 w-4 shrink-0 text-primary-text" />

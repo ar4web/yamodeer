@@ -10,6 +10,10 @@ test("Work Hub keeps its storage boundary visible and uses shared controls and s
   assert.match(workHub, /inlineFormControlClassName/);
   assert.match(workHub, /className=\{formControlClassName\}/);
   assert.match(workHub, /className=\{`\$\{surfaceClassName\} space-y-3 p-4/);
+  assert.match(workHub, /onContextMenu=\{openContextMenu\}/);
+  assert.match(workHub, /<ContextMenu/);
+  assert.match(workHub, /helper=\{activeTab === "tasks"/);
+  assert.doesNotMatch(workHub, /FilterDrawerEdgeTrigger/);
 });
 
 test("Workspace and chat label locally stored data and visual-only calls", async () => {

@@ -32,6 +32,7 @@ import {
 import { useLanguage } from "@/context/LanguageContext";
 import { useTheme, ThemeMode } from "@/context/ThemeContext";
 import { formControlClassName, iconButtonBaseClass, iconButtonClass, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
+import { WorkspaceHelperMenu, WorkspaceToolbar, WorkspaceToolbarProvider } from "@/components/WorkspaceToolbar";
 import {
   useCurrentRole,
   useRBACGeofence,
@@ -569,8 +570,16 @@ export const MasterShell: React.FC = () => {
         ? t("shell.sidebar_width_wide")
         : t("shell.sidebar_width_default");
   const isGeoVerified = verificationStatus === "VERIFIED_INSIDE_ZONE";
+  const fallbackTitleKey =
+    activeRoute === "profile"
+      ? "nav.profile"
+      : activeRoute === "workspace"
+        ? "nav.work_hub"
+        : sidebarGroups.flatMap((group) => group.items).find((item) => item.key === activeRoute)?.labelKey
+          ?? "nav.dashboard";
 
   return (
+    <WorkspaceToolbarProvider>
     <div className="flex min-h-screen overflow-x-clip bg-canvas text-foreground">
       <a href="#workspace-main" className="skip-link">{t("accessibility.skip_main")}</a>
       {/* Primary workspace navigation */}
@@ -722,7 +731,8 @@ export const MasterShell: React.FC = () => {
 
       {/* Active workspace */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 flex-col items-stretch gap-2 border-b border-theme bg-surface px-3 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
+        <div className="sticky top-0 z-30 border-b border-theme bg-surface">
+        <header className="flex min-h-16 flex-col items-stretch gap-2 px-3 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
           <div className="relative min-w-0 w-full max-w-none flex-1 sm:ms-3 sm:max-w-xl lg:w-1/4 lg:min-w-[12rem] lg:flex-none">
             <Search aria-hidden="true" className="absolute top-1/2 start-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
@@ -792,9 +802,19 @@ export const MasterShell: React.FC = () => {
             </button>
           </div>
         </header>
+        <WorkspaceToolbar fallbackTitle={t(fallbackTitleKey)} />
+        </div>
+        <WorkspaceHelperMenu
+          fallbackTitle={t(fallbackTitleKey)}
+          onFocusSearch={() => {
+            const search = document.querySelector<HTMLInputElement>("header input[type='search']");
+            search?.focus();
+            search?.select();
+          }}
+        />
 
-        <main id="workspace-main" data-modal-focus-fallback tabIndex={-1} aria-label={t("accessibility.main_content")} className="flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-          <div key={activeRoute} className="w-full min-w-0 space-y-6 app-page-enter">
+        <main id="workspace-main" data-modal-focus-fallback tabIndex={-1} aria-label={t("accessibility.main_content")} className="flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
+          <div key={activeRoute} className="w-full min-w-0 space-y-4 app-page-enter">
             <RBACRouteGuard
               route={activeRoute}
               onReturnSafeRoute={() => setActiveRoute("dashboard")}
@@ -1124,5 +1144,6 @@ export const MasterShell: React.FC = () => {
         </div>
       )}
     </div>
+    </WorkspaceToolbarProvider>
   );
 };

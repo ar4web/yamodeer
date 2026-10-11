@@ -77,7 +77,6 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
 
   const [clientMatches, setClientMatches] = useState<ClientProfile[]>([]);
   const [clientSearchQuery, setClientSearchQuery] = useState("");
-  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatusFilter>("ALL");
   const [sourceFilter, setSourceFilter] = useState<InvoiceSourceFilter>("ALL");
   const [searchingClients, setSearchingClients] = useState(false);
@@ -174,7 +173,7 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
     openValueSar: drafts.reduce((sum, draft) => sum + draft.totals.grandTotalSar, 0)
   }), [drafts]);
   const filteredDrafts = useMemo(() => {
-    const rawQuery = invoiceSearchQuery.trim() || globalSearchQuery.trim();
+    const rawQuery = globalSearchQuery.trim();
     const query = rawQuery.toLocaleLowerCase(language === "ar" ? "ar-SA" : "en-US");
     return drafts
       .filter((draft) => statusFilter === "ALL" || draft.status === statusFilter)
@@ -193,7 +192,7 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
         return searchable.includes(query);
       })
       .sort((first, second) => Date.parse(second.createdAtIso) - Date.parse(first.createdAtIso));
-  }, [drafts, globalSearchQuery, invoiceSearchQuery, language, sourceFilter, statusFilter]);
+  }, [drafts, globalSearchQuery, language, sourceFilter, statusFilter]);
 
   const resetForNewInvoice = () => {
     const date = todayIsoDate();
@@ -434,6 +433,36 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
               {t("invoice.new")}
             </button>
           ) : null}
+          helper={(
+            <div className="space-y-3">
+              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                <span>{t("invoice.list.filter.status")}</span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as InvoiceStatusFilter)}
+                  aria-label={t("invoice.list.filter.status")}
+                  className={`${fieldClassName} h-11`}
+                >
+                  <option value="ALL">{t("invoice.list.filter.all_statuses")}</option>
+                  <option value="DRAFT">{t("invoice.status.draft")}</option>
+                  <option value="READY_TO_ISSUE">{t("invoice.status.ready_to_issue")}</option>
+                </select>
+              </label>
+              <label className="block space-y-1.5 text-dynamic-xs font-semibold text-muted">
+                <span>{t("invoice.list.filter.source")}</span>
+                <select
+                  value={sourceFilter}
+                  onChange={(event) => setSourceFilter(event.target.value as InvoiceSourceFilter)}
+                  aria-label={t("invoice.list.filter.source")}
+                  className={`${fieldClassName} h-11`}
+                >
+                  <option value="ALL">{t("invoice.list.filter.all_sources")}</option>
+                  <option value="PURCHASE_ORDER">{t("invoice.source.po")}</option>
+                  <option value="DIRECT">{t("invoice.source.direct")}</option>
+                </select>
+              </label>
+            </div>
+          )}
         />
 
         {noticeKey && (
@@ -470,18 +499,7 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
           </div>
         </section>
 
-        <section aria-label={t("invoice.list.filters")} className="grid gap-3 border border-theme bg-surface p-3 md:grid-cols-[minmax(12rem,25%)_12rem_12rem]">
-          <div className="relative">
-            <Search aria-hidden="true" className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <input
-              type="search"
-              value={invoiceSearchQuery}
-              onChange={(event) => setInvoiceSearchQuery(event.target.value)}
-              placeholder={t("invoice.list.search")}
-              aria-label={t("invoice.list.search")}
-              className={`${fieldClassName} ps-10`}
-            />
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as InvoiceStatusFilter)}
@@ -502,10 +520,10 @@ export const InvoicingModule: React.FC<InvoicingModuleProps> = ({
             <option value="PURCHASE_ORDER">{t("invoice.source.po")}</option>
             <option value="DIRECT">{t("invoice.source.direct")}</option>
           </select>
-          <p role="status" className="text-dynamic-xs text-muted md:col-span-3">
-            <bdi>{filteredDrafts.length.toLocaleString(language === "ar" ? "ar-SA" : "en-US")}</bdi> {t("invoice.list.results_count")}
-          </p>
-        </section>
+        </div>
+        <p role="status" className="text-dynamic-xs text-muted">
+          <bdi>{filteredDrafts.length.toLocaleString(language === "ar" ? "ar-SA" : "en-US")}</bdi> {t("invoice.list.results_count")}
+        </p>
 
         {drafts.length === 0 ? (
           <section className={`${sectionClassName} flex min-h-56 flex-col items-center justify-center gap-2 text-center`}>
