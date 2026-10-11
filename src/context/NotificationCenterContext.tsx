@@ -56,7 +56,7 @@ const createSeedNotifications = (): NotificationRecord[] => {
       body: { en: "Profile, workflow and notification changes stay in this browser session; no email or SMS is sent.", ar: "تبقى تغييرات الملف ومسارات العمل والإشعارات ضمن جلسة المتصفح؛ ولا يُرسل بريد أو رسالة نصية." },
       createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
       isRead: true,
-      route: "profile"
+      route: "settings"
     }
   ];
 };

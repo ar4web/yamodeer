@@ -5,11 +5,9 @@ import {
   Briefcase,
   Receipt,
   Landmark,
-  FolderOpen,
   Scale,
   Sliders,
   ShieldAlert,
-  MapPin,
   Globe,
   Search,
   Sun,
@@ -22,16 +20,13 @@ import {
   X,
   Send,
   ListTodo,
-  Mail,
-  MessageCircle,
   Sparkles,
   FileText,
-  GitBranch,
-  UserRound
+  GitBranch
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTheme, ThemeMode } from "@/context/ThemeContext";
-import { formControlClassName, iconButtonBaseClass, iconButtonClass, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
+import { formControlClassName, iconButtonClass, primaryButtonClass, secondaryButtonClass, useModalFocus } from "@/components/DesignSystem";
 import { WorkspaceHelperMenu, WorkspaceToolbar, WorkspaceToolbarProvider } from "@/components/WorkspaceToolbar";
 import {
   useCurrentRole,
@@ -52,15 +47,11 @@ import { EmployeeModule } from "@/modules/EmployeeModule";
 import { VendorModule } from "@/modules/VendorModule";
 import { ExpenseModule } from "@/modules/ExpenseModule";
 import { WorkflowEngineModule } from "@/modules/WorkflowEngineModule";
-import { UserProfileModule } from "@/modules/UserProfileModule";
 import { NotificationCenterButton } from "@/components/NotificationCenterButton";
 import { AccountsModule } from "@/modules/AccountsModule";
-import { FilesManagerModule, INITIAL_VAULT_FILES, VaultFileItem } from "@/modules/FilesManagerModule";
 import { ComplianceZatcaModule } from "@/modules/ComplianceZatcaModule";
 import { MasterSettingsModule } from "@/modules/MasterSettingsModule";
 import { WorkSuiteModule } from "@/modules/WorkSuiteModule";
-import { MailModule } from "@/modules/MailModule";
-import { ChatModule } from "@/modules/ChatModule";
 import { InvoicingModule } from "@/modules/InvoicingModule";
 import type { InvoiceDraftRecord } from "@/services/invoiceWorkspace";
 import {
@@ -136,15 +127,11 @@ export const RBACRouteGuard: React.FC<{
               if (route === "vendors") toggleAppModule("vendorPortalEnabled");
               if (route === "expenses") toggleAppModule("expensesModuleEnabled");
               if (route === "accounts") toggleAppModule("accountsModuleEnabled");
-              if (route === "files") toggleAppModule("filesManagerEnabled");
-              if (route === "doc_maker") toggleAppModule("docMakerEnabled");
               if (route === "work_hub") {
                 if (hasPermission("route:work_hub")) toggleAppModule("workHubEnabled");
                 if (hasPermission("route:workspace")) toggleAppModule("workspaceModuleEnabled");
               }
               if (route === "workspace") toggleAppModule("workspaceModuleEnabled");
-              if (route === "mail") toggleAppModule("mailModuleEnabled");
-              if (route === "chat") toggleAppModule("chatModuleEnabled");
               if (route === "compliance") {
                 toggleAppModule("laborLawEngineEnabled");
                 toggleAppModule("zatcaPhase2Enabled");
@@ -243,7 +230,6 @@ export const MasterShell: React.FC = () => {
     capturedCoords,
     calculatedDistanceMeters,
     verificationStatus,
-    isClockedIn,
     geofenceModalOpen,
     setGeofenceModalOpen,
     simulateCoordinatePreset,
@@ -325,7 +311,6 @@ export const MasterShell: React.FC = () => {
   const [selectedInvoiceNo, setSelectedInvoiceNo] = useState<
     string | undefined
   >(undefined);
-  const [vaultFiles, setVaultFiles] = useState<VaultFileItem[]>(INITIAL_VAULT_FILES);
 
   // Geofence Exception Workflow Local State
   const [exceptionReasonInput, setExceptionReasonInput] = useState("");
@@ -352,23 +337,6 @@ export const MasterShell: React.FC = () => {
           labelKey: "nav.work_hub",
           icon: ListTodo,
           enabled: moduleToggles.workHubEnabled || moduleToggles.workspaceModuleEnabled
-        },
-      ]
-    },
-    {
-      labelKey: "nav.group.communication",
-      items: [
-        {
-          key: "mail" as ModuleRouteKey,
-          labelKey: "nav.mail",
-          icon: Mail,
-          enabled: moduleToggles.mailModuleEnabled
-        },
-        {
-          key: "chat" as ModuleRouteKey,
-          labelKey: "nav.chat",
-          icon: MessageCircle,
-          enabled: moduleToggles.chatModuleEnabled
         }
       ]
     },
@@ -421,17 +389,6 @@ export const MasterShell: React.FC = () => {
           icon: Landmark,
           enabled: moduleToggles.accountsModuleEnabled
         }
-      ]
-    },
-    {
-      labelKey: "nav.group.documents",
-      items: [
-        {
-          key: "files" as ModuleRouteKey,
-          labelKey: "nav.files",
-          icon: FolderOpen,
-          enabled: moduleToggles.filesManagerEnabled
-        },
       ]
     },
     {
@@ -571,12 +528,10 @@ export const MasterShell: React.FC = () => {
         : t("shell.sidebar_width_default");
   const isGeoVerified = verificationStatus === "VERIFIED_INSIDE_ZONE";
   const fallbackTitleKey =
-    activeRoute === "profile"
-      ? "nav.profile"
-      : activeRoute === "workspace"
-        ? "nav.work_hub"
-        : sidebarGroups.flatMap((group) => group.items).find((item) => item.key === activeRoute)?.labelKey
-          ?? "nav.dashboard";
+    activeRoute === "workspace"
+      ? "nav.work_hub"
+      : sidebarGroups.flatMap((group) => group.items).find((item) => item.key === activeRoute)?.labelKey
+        ?? "nav.dashboard";
 
   return (
     <WorkspaceToolbarProvider>
@@ -656,51 +611,6 @@ export const MasterShell: React.FC = () => {
           ))}
         </nav>
 
-        <div className={`space-y-2.5 border-t border-shell-nav-border ${isSidebarCompact ? "p-2.5 pt-3" : "p-3.5 pt-3"}`}>
-          <button
-            type="button"
-            onClick={() => setGeofenceModalOpen(true)}
-            title={t(isClockedIn ? "shell.clocked_in_badge" : "shell.clock_in_btn")}
-            aria-label={t(isClockedIn ? "shell.clocked_in_badge" : "shell.clock_in_btn")}
-            className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-shell-nav-border bg-shell-nav-elevated text-dynamic-sm font-semibold text-shell-nav-foreground transition-colors hover:bg-shell-nav-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-              isSidebarCompact ? "px-0" : "px-3"
-            }`}
-          >
-            <Navigation className="h-4 w-4 text-shell-nav-foreground" />
-            {!isSidebarCompact && (
-              <span>
-                {isClockedIn
-                  ? t("shell.clocked_in_badge")
-                  : t("shell.clock_in_btn")}
-              </span>
-            )}
-          </button>
-
-          <div className="space-y-1.5">
-            {!isSidebarCompact && (
-              <label htmlFor="workspace-role" className="block text-dynamic-xs font-semibold text-shell-nav-muted">
-                {t("shell.active_role")}
-              </label>
-            )}
-            <select
-              id="workspace-role"
-              aria-label={t("shell.switch_role")}
-              title={t("shell.switch_role")}
-              value={currentRole}
-              onChange={(e) => setCurrentRole(e.target.value as CorporateRole)}
-              className={`min-h-11 w-full rounded-lg border border-shell-nav-border bg-shell-nav-elevated py-2 text-dynamic-xs font-semibold text-shell-nav-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
-                isSidebarCompact ? "px-1 text-center" : "px-3"
-              }`}
-            >
-              {ROLE_OPTIONS.map((roleKey) => (
-                <option key={roleKey} value={roleKey}>
-                  {t(`role.short.${roleKey}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <div
           role="separator"
           aria-orientation="vertical"
@@ -746,18 +656,23 @@ export const MasterShell: React.FC = () => {
           </div>
 
           <div className="shell-topbar-controls ms-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setGeofenceModalOpen(true)}
-              title={t(isGeoVerified ? "shell.location_verified" : "shell.location_review")}
-              aria-label={t(isGeoVerified ? "shell.location_verified" : "shell.location_review")}
-              className={`${iconButtonBaseClass} ${isGeoVerified ? "bg-success-soft text-success-text hover:bg-success-soft" : "bg-warning-soft text-warning-text hover:bg-warning-soft"}`}
-            >
-              <span className={`h-1.5 w-1.5 shrink-0 ${isGeoVerified ? "bg-success" : "bg-warning"}`} />
-              <MapPin className="h-4 w-4" />
-            </button>
-
             <NotificationCenterButton onNavigate={setActiveRoute} />
+
+            <label className="sr-only" htmlFor="workspace-role">{t("shell.switch_role")}</label>
+            <select
+              id="workspace-role"
+              aria-label={t("shell.switch_role")}
+              title={t("shell.switch_role")}
+              value={currentRole}
+              onChange={(e) => setCurrentRole(e.target.value as CorporateRole)}
+              className={`${formControlClassName} h-10 w-[min(100%,9.5rem)] py-1 text-dynamic-xs font-semibold`}
+            >
+              {ROLE_OPTIONS.map((roleKey) => (
+                <option key={roleKey} value={roleKey}>
+                  {t(`role.short.${roleKey}`)}
+                </option>
+              ))}
+            </select>
 
             <button
               type="button"
@@ -783,22 +698,6 @@ export const MasterShell: React.FC = () => {
               className={iconButtonClass}
             >
               <Globe className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoute("profile");
-                window.requestAnimationFrame(() => document.getElementById("workspace-main")?.focus());
-              }}
-              title={t("nav.profile")}
-              aria-label={t("nav.profile")}
-              aria-current={activeRoute === "profile" ? "page" : undefined}
-              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${activeRoute === "profile" ? "border-primary bg-primary-soft text-primary-text" : "border-theme bg-surface-elevated text-muted hover:border-primary/50 hover:bg-primary-soft hover:text-primary-text"}`}
-            >
-              <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-                <UserRound className="h-4 w-4" />
-              </span>
             </button>
           </div>
         </header>
@@ -834,8 +733,6 @@ export const MasterShell: React.FC = () => {
               )}
               {activeRoute === "work_hub" && <WorkSuiteModule globalSearchQuery={globalSearchQuery} />}
               {activeRoute === "workspace" && <WorkSuiteModule globalSearchQuery={globalSearchQuery} initialArea="WORKSPACE" />}
-              {activeRoute === "mail" && <MailModule globalSearchQuery={globalSearchQuery} />}
-              {activeRoute === "chat" && <ChatModule globalSearchQuery={globalSearchQuery} />}
               {activeRoute === "employees" && (rosterData ? (
                 <PartialRosterDirectoryModule
                   records={rosterData.records}
@@ -858,7 +755,6 @@ export const MasterShell: React.FC = () => {
               {activeRoute === "workflows" && (
                 <WorkflowEngineModule employees={employees} globalSearchQuery={globalSearchQuery} />
               )}
-              {activeRoute === "profile" && <UserProfileModule />}
               {activeRoute === "invoices" && (
                 <InvoicingModule
                   drafts={invoiceDrafts}
@@ -887,14 +783,6 @@ export const MasterShell: React.FC = () => {
               )}
               {activeRoute === "expenses" && <ExpenseModule employees={employees} globalSearchQuery={globalSearchQuery} />}
               {activeRoute === "accounts" && <AccountsModule />}
-              {activeRoute === "files" && (
-                <FilesManagerModule
-                  files={vaultFiles}
-                  onUploadFile={(file) => setVaultFiles((prev) => [file, ...prev])}
-                  canOpenDocMaker={moduleToggles.docMakerEnabled && hasPermission("route:doc_maker")}
-                  globalSearchQuery={globalSearchQuery}
-                />
-              )}
               {activeRoute === "compliance" && (
                 <ComplianceZatcaModule
                   employees={employees}

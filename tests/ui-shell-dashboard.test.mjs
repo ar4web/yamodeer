@@ -24,12 +24,12 @@ test("dashboard uses a full-width number-first layout and quieter nested surface
     readSource("../src/modules/DashboardModule.tsx"),
     readSource("../src/components/DesignSystem.tsx")
   ]);
-  assert.match(dashboard, /import \{ (?:AccessibleTooltip, )?formControlClassName, MetricCard,[\s\S]*?secondaryButtonClass, surfaceClassName \}/);
+  assert.match(dashboard, /import \{ (?:AccessibleTooltip, )?formControlClassName, inlineFormControlClassName, MetricCard,[\s\S]*?secondaryButtonClass, surfaceClassName \}/);
   assert.match(dashboard, /max-w-screen-2xl/);
   assert.match(dashboard, /xl:grid-cols-2/);
   assert.match(dashboard, /sm:grid-cols-2 xl:grid-cols-4/);
   assert.match(dashboard, /className=\{`\$\{surfaceClassName\} p-5`\}/);
-  assert.match(dashboard, /className=\{`\$\{formControlClassName\} font-semibold`\}/);
+  assert.match(dashboard, /className=\{`\$\{inlineFormControlClassName\} min-w-40 text-dynamic-xs font-semibold`\}/);
   assert.doesNotMatch(dashboard, /rounded-lg border border-theme bg-surface-elevated p-3 text-start/);
   assert.match(designSystem, /export const surfaceClassName = \"rounded-lg border border-theme bg-surface shadow-card\"/);
   assert.match(designSystem, /export const quietSurfaceClassName = \"rounded-lg bg-surface shadow-card\"/);
@@ -41,7 +41,8 @@ test("dashboard uses a full-width number-first layout and quieter nested surface
 test("shell search and navigation use consistent, accessible boundaries", async () => {
   const shell = await readSource("../src/components/MasterShell.tsx");
   assert.match(shell, /className=\{`\$\{formControlClassName\} h-10 ps-10 pe-4`\}/);
-  assert.match(shell, /<header className=\"[^\"]*border-b border-theme bg-surface/);
+  assert.match(shell, /sticky top-0 z-30 border-b border-theme bg-surface/);
+  assert.match(shell, /<header className=\"[^\"]*flex-col[^\"]*sm:flex-row/);
   assert.match(shell, /<footer className=\"[^\"]*border-t border-theme bg-surface/);
   assert.match(shell, /role=\"group\"\s+aria-label=\{t\(group\.labelKey\)\}/);
   assert.doesNotMatch(shell, /<p aria-hidden=\"true\" className=\"px-3 pt-3[^\"]*\">\s*\{t\(group\.labelKey\)\}/);
@@ -61,7 +62,8 @@ test("top toolbar, sidebar footer, brand area and shared action buttons use cons
   assert.match(shell, /shell-topbar-controls[^\"]*flex-wrap[^\"]*justify-end[^\"]*gap-1[^\"]*sm:w-auto[^\"]*sm:gap-2/);
   assert.match(shell, /mx-2 flex min-h-16 items-center gap-3 border-b/);
   assert.match(shell, /min-h-0 flex-1 space-y-1\.5 overflow-y-auto/);
-  assert.match(shell, /space-y-2\.5 border-t border-shell-nav-border/);
+  assert.doesNotMatch(shell, /space-y-2\.5 border-t border-shell-nav-border/);
+  assert.match(shell, /id="workspace-role"/);
   assert.match(settings, /flex min-w-0 flex-col items-stretch gap-1\.5 border-e border-theme/);
   assert.match(designSystem, /primaryButtonClass =\s*"[^\"]*min-h-11[^\"]*gap-2\.5/);
   assert.match(designSystem, /secondaryButtonClass =\s*"[^\"]*min-h-11[^\"]*gap-2\.5/);

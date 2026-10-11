@@ -364,18 +364,6 @@ export const MasterSettingsModule: React.FC<MasterSettingsModuleProps> = ({
       badge: "SOCPA-GL"
     },
     {
-      key: "filesManagerEnabled",
-      title: { en: "SDAIA PDPL Enterprise Files Vault", ar: "خزنة الملفات المؤسسية وفق سدايا ونظام حماية البيانات" },
-      description: { en: "Enables searchable classified folders for Qiwa, Muqeem, payroll, ZATCA and generated document assets.", ar: "يفعل مجلدات مصنفة وقابلة للبحث لعقود قوى ومقيم والرواتب وزاتكا والمستندات المنشأة." },
-      badge: "PDPL-VAULT"
-    },
-    {
-      key: "docMakerEnabled",
-      title: { en: "Bilingual Enterprise Doc Maker Studio", ar: "استوديو صانع المستندات المؤسسي ثنائي اللغة" },
-      description: { en: "Activates templates, RTL/LTR page layouts, paper presets, letterhead importing, custom styles and DOCX/XLSX/PDF interchange.", ar: "يفعل القوالب وتخطيطات RTL/LTR وأحجام الورق والترويسة والأنماط المخصصة وتبادل DOCX/XLSX/PDF." },
-      badge: "DOC-STUDIO"
-    },
-    {
       key: "workHubEnabled",
       title: { en: "Work Hub · My work", ar: "مركز العمل · أعمالي" },
       description: { en: "Controls personal tasks, reminders and notebooks inside Work Hub.", ar: "يتحكم في المهام والتذكيرات والدفاتر الشخصية داخل مركز العمل." },
@@ -390,18 +378,6 @@ export const MasterSettingsModule: React.FC<MasterSettingsModuleProps> = ({
       titleKey: "set.app.work_hub.workspace.title",
       descriptionKey: "set.app.work_hub.workspace.desc",
       badge: "WORK-HUB"
-    },
-    {
-      key: "mailModuleEnabled",
-      title: { en: "Unified Mail & AI Assistant", ar: "البريد الموحد ومساعد الذكاء الاصطناعي" },
-      description: { en: "Enables the mail workspace for Gmail, Microsoft 365, Yahoo, iCloud and IMAP setup flows. Live sync requires approved OAuth/provider and backend configuration.", ar: "يفعل مساحة البريد لمسارات إعداد Gmail وMicrosoft 365 وYahoo وiCloud وIMAP. تتطلب المزامنة الفعلية إعداد OAuth ومزود وخادماً معتمداً." },
-      badge: "MAIL-AI"
-    },
-    {
-      key: "chatModuleEnabled",
-      title: { en: "Internal Chat & Team Calls", ar: "المحادثات الداخلية ومكالمات الفرق" },
-      description: { en: "Enables the local-demo messaging interface, team channels and conference-call preview. Messaging is not real-time across users, and calls require a configured provider.", ar: "يفعل واجهة المحادثات التجريبية وقنوات الفرق ومعاينة المؤتمرات. لا تتم مزامنة الرسائل لحظياً بين المستخدمين، وتتطلب المكالمات مزوداً مهيأً." },
-      badge: "CHAT-DEMO"
     },
     {
       key: "laborLawEngineEnabled",
